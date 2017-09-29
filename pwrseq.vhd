@@ -2,7 +2,7 @@ library IEEE;
 use IEEE.numeric_std.ALL;
 use IEEE.STD_LOGIC_1164.ALL;
 
-entity PWRseq_Romulus is
+entity pwrseq is
 	generic (rail_size : integer);
 	Port (EN : out STD_LOGIC_VECTOR (rail_size-1 downto 0) := (others=>'0');
 			PGOOD_A : in STD_LOGIC_VECTOR (rail_size-1 downto 0);
@@ -11,9 +11,9 @@ entity PWRseq_Romulus is
 			SCL: inout STD_LOGIC;
 			SDA: inout STD_LOGIC;
 			CLK_IN: in STD_LOGIC);
-end PWRseq_Romulus;
+end pwrseq;
 
-architecture Behavioral of PWRseq_Romulus is
+architecture Behavioral of pwrseq is
 	--Input output buffers and synchronizers
 	--constant rail_size : integer := EN'LENGTH;
 	signal EN_BUF : STD_LOGIC_VECTOR (rail_size-1 downto 0) := (others => '0');

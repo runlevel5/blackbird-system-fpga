@@ -4,7 +4,7 @@ use IEEE.STD_LOGIC_1164.ALL;
 library machxo2;
 use machxo2.all;
 
-entity Romulus_CPLD_TOP is
+entity FPGA_TOP is
 	Port (	SYSEN : in STD_LOGIC;
 			SYSGOOD: out STD_LOGIC := '0';
 			DEBUG_IN: in STD_LOGIC;
@@ -76,9 +76,9 @@ entity Romulus_CPLD_TOP is
 			);
 			
 						
-end Romulus_CPLD_TOP;
+end FPGA_TOP;
 
-architecture Behavioral of Romulus_CPLD_TOP is
+architecture Behavioral of FPGA_TOP is
 	--FUTURE update version
 	constant cpld_version : STD_LOGIC_VECTOR (7 downto 0) := "00000101";
 	constant rail_size : integer := 15;
@@ -163,7 +163,7 @@ begin
 --	CLK_DIV <= STD_LOGIC(CLK_REG(2));
 	
 	-- Power Sequencer Instance
--- SEQ1: entity work.PWRseq_Romulus 
+-- SEQ1: entity work.pwrseq 
 	-- generic map(rail_size)
 	-- port map(
 		-- EN => EN_BUF,
