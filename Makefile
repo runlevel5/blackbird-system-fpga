@@ -62,8 +62,8 @@ endif
 system_fpga.ex: system_fpga.int
 	icebox_explain system_fpga.int > system_fpga.ex
 
-system_fpga.blif: main.v power_sequencer.v i2c_slave.v
-	yosys -l yosys.log -q -p "synth_ice40 -top system_fpga_top -blif system_fpga.blif" main.v power_sequencer.v i2c_slave.v
+system_fpga.blif: main.v i2c_slave.v
+	yosys -l yosys.log -q -p "synth_ice40 -top system_fpga_top -blif system_fpga.blif" main.v i2c_slave.v
 
 system_fpga.bin: system_fpga.int
 	cp system_fpga.int system_fpga.bin
