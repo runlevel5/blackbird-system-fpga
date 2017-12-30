@@ -1,0 +1,76 @@
+# This file is part of the Talos™ II system FPGA implementation
+#
+# © 2017 Raptor Engineering, LLC
+# All Rights Reserved
+#
+# Licensed for exclusive use with Talos™ II systems from Raptor Computing Systems
+# https://www.raptorcs.com/TALOSII
+
+# LPC clock
+set_io lpc_clock 13
+
+# General I/O
+set_io sysen 15
+set_io sysgood 53
+set_io debug_in 25
+
+# Workaround Control
+set_io seq_cont 100
+
+# Power Plane Enable
+set_io vdda_en 72
+set_io vddb_en 79
+set_io vcsa_en 71
+set_io vcsb_en 78
+set_io vdna_en 68
+set_io vdnb_en 51
+set_io vioa_en 66
+set_io viob_en 69
+set_io vppab_en 52
+set_io vppcd_en 60
+set_io vddrab_en 65
+set_io vttab_en 62
+set_io vddrcd_en 64
+set_io vttcd_en 63
+set_io avdd_en 59
+set_io miscio_en 56
+set_io atx_en 57
+
+# Power Good Sense
+set_io vdda_pg 28
+set_io vddb_pg 26
+set_io vcsa_pg 29
+set_io vcsb_pg 27
+set_io vdna_pg 34
+set_io vdnb_pg 30
+set_io vioa_pg 36
+set_io viob_pg 33
+set_io vppab_pg 42
+set_io vppcd_pg 41
+set_io vddrab_pg 37
+set_io vddrcd_pg 40
+set_io avdd_pg 19
+set_io miscio_pg 24
+set_io atx_pg 20
+set_io bmc_vr_pg 18
+
+# I2C
+set_io i2c_scl 86
+set_io i2c_sda 85
+
+# CPU B Presence Detect
+set_io cpub_present_n 4
+set_io cpub_clk_oea 10
+set_io cpub_clk_oeb 9
+
+# Resets
+set_io lpc_rst 82
+set_io bmc_software_pg 8
+set_io bmc_rst 83
+set_io fan_rst 1
+set_io usbhub_rst 87
+set_io cpu_stby_rst 54
+
+# Reserved
+set_io dual_5v_ctrl 80
+set_io window_open_n 99

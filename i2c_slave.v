@@ -1,12 +1,18 @@
-// Copyright © 2017 Raptor Engineering, LLC
 // Copyright © 2014-2016 Peter Samarin
+// Copyright © 2017 Raptor Engineering, LLC
 // All Rights Reserved
 //
 // See I2C_SLAVE_LICENSE file for licensing details
 
-module I2C_slave(
-		inout wire scl,
-		inout wire sda,
+module i2c_slave(
+		input wire scl_in,
+		output wire scl_out,
+		output wire scl_direction,
+
+		input wire sda_in,
+		output wire sda_out,
+		output wire sda_direction,
+
 		input wire clk,
 		input wire rst,
 
@@ -17,7 +23,7 @@ module I2C_slave(
 		output wire [7:0] data_from_master
 	);
 
-	parameter [6:0] SLAVE_ADDR;
+	parameter [6:0] SLAVE_ADDR = 0;
 
 
 	//----------------------------------------------------------
@@ -34,32 +40,32 @@ module I2C_slave(
 	reg [2:0] state_reg = i2c_idle;
 	reg cmd_reg = 1'b0;
 	reg [31:0] bits_processed_reg = 0;
-	reg continue_reg = 1'b0;  // Helpers to figure out next state
+	reg continue_reg = 1'b0; 	// Helpers to figure out next state
 	reg start_reg = 1'b0;
 	reg stop_reg = 1'b0;
 	reg scl_rising_reg = 1'b0;
-	reg scl_falling_reg = 1'b0;  // Address and data received from master
+	reg scl_falling_reg = 1'b0; 	// Address and data received from master
 	reg [6:0] addr_reg = 1'b0;
-	reg [7:0] data_reg = 1'b0;  // Delayed SCL (by 1 clock cycle, and by 2 clock cycles)
+	reg [7:0] data_reg = 1'b0; 	// Delayed SCL (by 1 clock cycle, and by 2 clock cycles)
 	reg scl_reg = 1'b1;
-	reg scl_prev_reg = 1'b1;  // Slave writes on scl
+	reg scl_prev_reg = 1'b1; 	// Slave writes on scl
 	wire scl_wen_reg = 1'b0;
-	wire scl_o_reg = 1'b0;  // Delayed SDA (1 clock cycle, and 2 clock cycles)
+	wire scl_o_reg = 1'b0; 		// Delayed SDA (1 clock cycle, and 2 clock cycles)
 	reg sda_reg = 1'b1;
-	reg sda_prev_reg = 1'b1;  // Slave writes on sda
+	reg sda_prev_reg = 1'b1; 	// Slave writes on sda
 	reg sda_wen_reg = 1'b0;
-	reg sda_o_reg = 1'b0;  // User interface
+	reg sda_o_reg = 1'b0; 		// User interface
 	reg data_valid_reg = 1'b0;
 	reg read_req_reg = 1'b0;
 	reg [7:0] data_to_master_reg = 1'b0;
 	
 	always @(posedge clk) begin
 		// Delay SCL by 1 and 2 clock cycles
-		scl_reg <= scl;
+		scl_reg <= scl_in;
 		scl_prev_reg <= scl_reg;
 
 		// Delay SDA by 1 and 2 clock cycles
-		sda_reg <= sda;
+		sda_reg <= sda_in;
 		sda_prev_reg <= sda_reg;
 
 		// Detect rising and falling SCL
@@ -223,23 +229,25 @@ module I2C_slave(
 		// Reset counter and state on start/stop
 		//------------------------------------------------------
 		if (start_reg == 1'b1) begin
-		state_reg <= i2c_get_address_and_cmd;
-		bits_processed_reg <= 0;
+			state_reg <= i2c_get_address_and_cmd;
+			bits_processed_reg <= 0;
 		end
 		if (stop_reg == 1'b1) begin
-		state_reg <= i2c_idle;
-		bits_processed_reg <= 0;
+			state_reg <= i2c_idle;
+			bits_processed_reg <= 0;
 		end
 		if (rst == 1'b1) begin
-		state_reg <= i2c_idle;
+			state_reg <= i2c_idle;
 		end
 	end
 	
 	//--------------------------------------------------------
 	// I2C interface
 	//--------------------------------------------------------
-	assign sda = sda_wen_reg == 1'b1 ? sda_o_reg : 1'bZ;
-	assign scl = scl_wen_reg == 1'b1 ? scl_o_reg : 1'bZ;
+	assign sda_out = (sda_o_reg & sda_wen_reg);
+	assign sda_direction = sda_wen_reg;
+	assign scl_out = (scl_o_reg & scl_wen_reg);
+	assign scl_direction = scl_wen_reg;
 	//--------------------------------------------------------
 	// User interface
 	//--------------------------------------------------------

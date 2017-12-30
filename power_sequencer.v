@@ -1,28 +1,35 @@
-// Copyright © 2017 Raptor Engineering, LLC
 // Copyright © 2017, International Business Machines Corp.
+// Copyright © 2017 Raptor Engineering, LLC
 // All Rights Reserved
 //
 // See LICENSE file for licensing details
 
 module pwrseq(
-		output wire [rail_size - 1:0] EN,
-		input wire [rail_size - 1:0] PGOOD_A,
-		input wire SYSEN_A,
-		output wire SYSGOOD,
-		inout wire SCL,
-		inout wire SDA,
-		input wire CLK_IN
+		output wire [rail_size - 1:0] en,
+		input wire [rail_size - 1:0] pgood_a,
+		input wire sysen_a,
+		output wire sysgood,
+
+		input wire scl_in,
+		output wire scl_out,
+		output wire scl_direction,
+
+		input wire sda_in,
+		output wire sda_out,
+		output wire sda_direction,
+
+		input wire clk_in
 	);
 
-	parameter [31:0] rail_size;
+	parameter [31:0] rail_size = 15;
 
 	// Input output buffers and synchronizers
-	reg [rail_size - 1:0] EN_BUF = 1'b0;
-	reg [rail_size - 1:0] PGOOD = 1'b0;
-	reg [rail_size - 1:0] PGOOD_S = 1'b0;
-	reg SYSEN = 1'b0;
-	reg SYSEN_S = 1'b0;
-	reg SYSGOOD_BUF = 1'b0;
+	reg [rail_size - 1:0] en_buf = 1'b0;
+	reg [rail_size - 1:0] pgood = 1'b0;
+	reg [rail_size - 1:0] pgood_s = 1'b0;
+	reg sysen = 1'b0;
+	reg sysen_s = 1'b0;
+	reg sysgood_buf = 1'b0;
 
 	// Sequencer State Machine
 	parameter [2:0] idleon = 0;
@@ -34,14 +41,14 @@ module pwrseq(
 	parameter [2:0] waitoff = 6;
 
 	reg [2:0] state = idleoff;
-	reg ERR = 1'b0;
+	reg err = 1'b0;
 	reg [15:0] err_msg = 1'b1;
 	parameter all_on = 1'b1;
 	parameter all_off = 1'b0;
 
 	// Clocks and timers
 	parameter counter_size = 20;
-	reg [counter_size - 1:0] T_COUNT;
+	reg [counter_size - 1:0] t_count;
 
 	// t_max_wait is max delay from Enable assert to Pgood assert (200 ms assumption 4.125MHz clk)
 	parameter t_max_wait = 825000;
@@ -61,21 +68,29 @@ module pwrseq(
 	parameter i2c_pg_reg_addr2 = i2c_pg_reg_addr1 + 1;
 	parameter i2c_status_reg_addr = i2c_pg_reg_addr2 + 1;
 	
-	I2C_slave #(i2c_addr)
-	I2C_SLAVE(
-		SCL,
-		SDA,
-		CLK_IN,
-		i2c_rst,
-		i2c_read_req,
-		i2c_data_to_master,
-		i2c_data_valid,
-		i2c_data_from_master
+	i2c_slave #(
+		.SLAVE_ADDR(i2c_addr)
+	)
+	i2c_slave_instance(
+		.scl_in(scl_in),
+		.scl_out(scl_out),
+		.scl_direction(scl_direction),
+
+		.sda_in(sda_in),
+		.sda_out(sda_out),
+		.sda_direction(sda_direction),
+
+		.clk(clk_in),
+		.rst(i2c_rst),
+		.read_req(i2c_read_req),
+		.data_to_master(i2c_data_to_master),
+		.data_valid(i2c_data_valid),
+		.data_from_master(i2c_data_from_master)
 	);
 	
 	// Handle I2C
-	// 2 8-bit registers with PGOOD state on error
-	always @(posedge CLK_IN) begin
+	// 2 8-bit registers with pgood state on error
+	always @(posedge clk_in) begin
 		//return high byte with any memory address, loop on any consecutive reads
 		if (i2c_data_valid == 1'b1) begin
 			i2c_reg_cur <= i2c_data_from_master;
@@ -91,7 +106,7 @@ module pwrseq(
 				i2c_data_to_master <= err_msg[7:0];
 			end
 			i2c_status_reg_addr : begin
-				i2c_data_to_master <= {6'b000000,SYSEN,SYSGOOD_BUF};
+				i2c_data_to_master <= {6'b000000, sysen, sysgood_buf};
 			end
 			default : begin
 				i2c_data_to_master <= 8'b00000000;
@@ -100,24 +115,24 @@ module pwrseq(
 		end
 	
 	// Power Sequencer state machine
-	always @(posedge CLK_IN) begin
+	always @(posedge clk_in) begin
 		// Increase counter
-		T_COUNT <= T_COUNT + 1;
+		t_count <= t_count + 1;
 
 		// Synchronize Asynchronous inputs to clock
-		PGOOD_S <= PGOOD_A;
-		PGOOD <= PGOOD_S;
-		SYSEN_S <= SYSEN_A;
-		SYSEN <= SYSEN_S;
+		pgood_s <= pgood_a;
+		pgood <= pgood_s;
+		sysen_s <= sysen_a;
+		sysen <= sysen_s;
 
 		// Decide next state
 		case(state)
 			idleoff : begin
 				//Only leave idle off if system enable active and no error
-				if (ERR == 1'b1) begin
+				if (err == 1'b1) begin
 					state <= idleoff;
 				end
-				else if (SYSEN == 1'b1) begin
+				else if (sysen == 1'b1) begin
 					state <= shifton;
 				end else begin
 					state <= idleoff;
@@ -125,24 +140,24 @@ module pwrseq(
 			end
 			shifton : begin
 				// enable next power rail, reset counter, wait for pgood
-				EN_BUF[rail_size - 1:1] <= EN_BUF[rail_size - 2:0];
-				EN_BUF[0] <= 1'b1;
-				T_COUNT <= {(((counter_size - 1))-((0))+1){1'b0}};
+				en_buf[rail_size - 1:1] <= en_buf[rail_size - 2:0];
+				en_buf[0] <= 1'b1;
+				t_count <= {(((counter_size - 1))-((0))+1){1'b0}};
 				state <= waitpgood;
 				end
 				waitpgood : begin
-				// Wait for enabled power rail's PGOOD, after time with no pgood, error
-				if (T_COUNT > t_max_wait) begin
-					ERR <= 1'b1;
+				// Wait for enabled power rail's pgood, after time with no pgood, error
+				if (t_count > t_max_wait) begin
+					err <= 1'b1;
 					err_msg <= {16{1'b0}};
-					err_msg[rail_size - 1:0] <= EN_BUF & PGOOD;
+					err_msg[rail_size - 1:0] <= en_buf & pgood;
 					state <= shiftoff;
 				end
-				else if ((EN_BUF & PGOOD) == all_on) begin
+				else if ((en_buf & pgood) == all_on) begin
 					state <= idleon;
 				end
-				else if (((EN_BUF & PGOOD) == EN_BUF)) begin
-					T_COUNT <= {(((counter_size - 1))-((0))+1){1'b0}};
+				else if (((en_buf & pgood) == en_buf)) begin
+					t_count <= {(((counter_size - 1))-((0))+1){1'b0}};
 					state <= waiten;
 				end else begin
 					state <= waitpgood;
@@ -150,8 +165,8 @@ module pwrseq(
 			end
 			waiten : begin
 				// delay between last pgood and next enable
-				if (T_COUNT > t_delay) begin
-					T_COUNT <= {(((counter_size - 1))-((0))+1){1'b0}};
+				if (t_count > t_delay) begin
+					t_count <= {(((counter_size - 1))-((0))+1){1'b0}};
 					state <= shifton;
 				end else begin
 					state <= waiten;
@@ -159,14 +174,14 @@ module pwrseq(
 			end
 			idleon : begin
 				// stay in idle on unless power rail goes down (error) or system enable removed
-				SYSGOOD_BUF <= 1'b1;
-				if ((!(PGOOD == all_on))) begin
-					ERR <= 1'b1;
+				sysgood_buf <= 1'b1;
+				if ((!(pgood == all_on))) begin
+					err <= 1'b1;
 					err_msg <= {16{1'b0}};
-					err_msg[rail_size - 1:0] <= PGOOD;
+					err_msg[rail_size - 1:0] <= pgood;
 				end
-				if (((SYSEN == 1'b0) || (ERR == 1'b1))) begin
-					SYSGOOD_BUF <= 1'b0;
+				if (((sysen == 1'b0) || (err == 1'b1))) begin
+					sysgood_buf <= 1'b0;
 					state <= shiftoff;
 				end else begin
 					state <= idleon;
@@ -174,22 +189,22 @@ module pwrseq(
 			end
 			shiftoff : begin
 				// Turn off enable for next power rail
-				EN_BUF[rail_size - 2:0] <= EN_BUF[rail_size - 1:1];
-				EN_BUF[rail_size - 1] <= 1'b0;
-				if ((EN_BUF == all_off)) begin
+				en_buf[rail_size - 2:0] <= en_buf[rail_size - 1:1];
+				en_buf[rail_size - 1] <= 1'b0;
+				if ((en_buf == all_off)) begin
 					state <= idleoff;
 				end else begin
-					T_COUNT <= {(((counter_size - 1))-((0))+1){1'b0}};
+					t_count <= {(((counter_size - 1))-((0))+1){1'b0}};
 					state <= waitoff;
 				end
 			end
 			waitoff : begin
 				// in controlled shutdown, delay between disabling power rails
-				if (ERR == 1'b1) begin
+				if (err == 1'b1) begin
 					state <= shiftoff;
 					//LED_BUF <= "10";
 				end
-				else if (T_COUNT > t_delay) begin
+				else if (t_count > t_delay) begin
 					state <= shiftoff;
 					//LED_BUF <= "10";
 				end else begin
@@ -200,8 +215,8 @@ module pwrseq(
 	end
 	
 	// Output enable buffer to pins
-	assign EN = ~(EN_BUF);
+	assign en = ~(en_buf);
 	assign i2c_rst = 1'b0;
-	assign SYSGOOD = SYSGOOD_BUF;
+	assign sysgood = sysgood_buf;
 	
 endmodule
