@@ -133,6 +133,10 @@ module system_fpga_top
 
 	// TODO update version
 	parameter fpga_version = 8'b00000110;
+	parameter vendor_id1 = 8'h52;
+	parameter vendor_id2 = 8'h43;
+	parameter vendor_id3 = 8'h53;
+	parameter vendor_id4 = 8'h20;
 	parameter rail_size = 15;
 	wire [rail_size - 1:0] en_buf = 1'b0;
 	wire [rail_size - 1:0] pg_buf;
@@ -171,6 +175,10 @@ module system_fpga_top
 	parameter i2c_pg_reg_addr2 = i2c_pg_reg_addr1 + 1;
 	parameter i2c_status_reg_addr = i2c_pg_reg_addr2 + 1;
 	parameter i2c_version_reg_addr = 8'b00000000;
+	parameter i2c_vendor_id_reg_addr1 = 8'b00001100;
+	parameter i2c_vendor_id_reg_addr2 = i2c_vendor_id_reg_addr1 + 1;
+	parameter i2c_vendor_id_reg_addr3 = i2c_vendor_id_reg_addr1 + 2;
+	parameter i2c_vendor_id_reg_addr4 = i2c_vendor_id_reg_addr1 + 3;
 	reg [15:0] i2c_pg_reg = 1'b0;
 	reg i2c_clr_err = 1'b0;
 
@@ -251,7 +259,7 @@ module system_fpga_top
 			// data from master is register to be read
 			i2c_reg_cur <= i2c_data_from_master;
 	
-			//pulse clear err signal if i2c master reads register 0x03
+			// pulse clear err signal if i2c master reads register 0x03
 			if (((i2c_data_from_master) == i2c_clr_err_addr)) begin
 				i2c_clr_err <= 1'b1;
 			end
@@ -270,8 +278,19 @@ module system_fpga_top
 				i2c_data_to_master <= i2c_pg_reg[7:0];
 			end
 			i2c_status_reg_addr: begin
-				// TODO add CPU1 presence detect
-				i2c_data_to_master <= {3'b000, wait_err, operation_err, err_found, sysen_buf, sysgood_buf};
+				i2c_data_to_master <= {2'b00, ~cpub_present_n, wait_err, operation_err, err_found, sysen_buf, sysgood_buf};
+			end
+			i2c_vendor_id_reg_addr1: begin
+				i2c_data_to_master <= vendor_id1;
+			end
+			i2c_vendor_id_reg_addr2: begin
+				i2c_data_to_master <= vendor_id2;
+			end
+			i2c_vendor_id_reg_addr3: begin
+				i2c_data_to_master <= vendor_id3;
+			end
+			i2c_vendor_id_reg_addr4: begin
+				i2c_data_to_master <= vendor_id4;
 			end
 			i2c_version_reg_addr: begin
 				i2c_data_to_master <= fpga_version;
