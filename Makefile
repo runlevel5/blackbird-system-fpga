@@ -66,10 +66,10 @@ system_fpga.blif: main.v i2c_slave.v
 	yosys -l yosys.log -q -p "synth_ice40 -top system_fpga_top -blif system_fpga.blif" main.v i2c_slave.v
 
 system_fpga.bin: system_fpga.int
-	cp system_fpga.int system_fpga.bin
+	icepack system_fpga.int system_fpga.bin
 
 blank.rom:
-	dd if=/dev/zero ibs=1M count=4 | tr "\000" "\377" > blank.rom
+	dd if=/dev/zero ibs=1k count=256 | tr "\000" "\377" > blank.rom
 
 system_fpga.rom: blank.rom system_fpga.bin
 	cp blank.rom system_fpga.rom
