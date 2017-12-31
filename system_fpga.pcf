@@ -74,3 +74,27 @@ set_io cpu_stby_rst 54
 # Reserved
 set_io dual_5v_ctrl 80
 set_io window_open_n 99
+
+# BMC system reset signalling
+set_io bmc_system_reset_request_n 12
+
+# Component disable lines
+set_io pmc_disable_n 21
+
+# System status lines
+set_io nic1_act_led_n 93
+set_io nic2_act_led_n 96
+set_io nic1_link_led_n 94
+set_io nic2_link_led_n 97
+set_io nic1_green_led_n 2
+set_io nic2_green_led_n 3
+set_io bmc_uid_led_req 90
+
+# Front panel indicators
+set_io panel_nic1_led_cathode 91
+set_io panel_nic2_led_cathode 95
+set_io panel_uid_led 89
+
+# Front panel switches
+set_io panel_reset_in_l 73
+set_io flexver_reset_in_l 74

@@ -58,7 +58,7 @@ module system_fpga_top
 		inout i2c_scl,
 		inout i2c_sda,
 
-		// Second CPU Present Detection
+		// Second CPU presence detect
 		input wire cpub_present_n,
 		output wire cpub_clk_oea,
 		output wire cpub_clk_oeb,
@@ -71,11 +71,38 @@ module system_fpga_top
 		output wire usbhub_rst,
 		output wire cpu_stby_rst,
 
-		// Reserved for Future Use
+		// Reserved for future use
 		output wire dual_5v_ctrl,
-		output wire window_open_n
+		output wire window_open_n,
+
+		// BMC system reset signalling
+		output wire bmc_system_reset_request_n,
+
+		// Component disable lines
+		output wire pmc_disable_n,
+
+		// System status lines
+		input wire nic1_act_led_n,
+		input wire nic2_act_led_n,
+		input wire nic1_link_led_n,
+		input wire nic2_link_led_n,
+		input wire nic1_green_led_n,
+		input wire nic2_green_led_n,
+		input wire bmc_uid_led_req,
+
+		// Front panel indicators
+		output wire panel_nic1_led_cathode,
+		output wire panel_nic2_led_cathode,
+		output wire panel_uid_led,
+
+		// Front panel switches
+		input wire panel_reset_in_l,
+
+		// FlexVer™ connections
+		input wire flexver_reset_in_l
 	);
 
+	// I2C pin control lines
 	wire i2c_scl_in;
 	wire i2c_scl_out;
 	wire i2c_scl_direction;
@@ -129,8 +156,9 @@ module system_fpga_top
 	reg operation_err = 1'b0;
 	reg err_found = 1'b0;
 	wire clear_err = 1'b0;
+	wire master_reset_reqest;
 
-	// i2c signals	
+	// I2C signals
 	wire i2c_read_req;
 	reg [7:0] i2c_data_to_master = 8'b00000000;
 	wire [7:0] i2c_data_from_master;
@@ -145,6 +173,12 @@ module system_fpga_top
 	parameter i2c_version_reg_addr = 8'b00000000;
 	reg [15:0] i2c_pg_reg = 1'b0;
 	reg i2c_clr_err = 1'b0;
+
+	// Front panel control signals
+	wire panel_nic1_led_cathode_std;
+	wire panel_nic2_led_cathode_std;
+	wire panel_uid_led_std;
+	reg [2:0] bmc_startup_kr = 3'b000;
 
 	// Divide input 33MHz clock down to 4.125MHz
 	reg [2:0] clock_divider;
@@ -173,6 +207,39 @@ module system_fpga_top
 		.data_valid(i2c_data_valid),
 		.data_from_master(i2c_data_from_master)
 	);
+
+	// Generate BMC startup "Knight Rider" display for front panel
+	wire slow_clk;
+	reg [24:0] slow_clk_counter;
+	always @(posedge clk_in) begin
+		slow_clk_counter <= slow_clk_counter + 1;
+	end
+	assign slow_clk = slow_clk_counter[24];
+
+	reg [1:0] bmc_startup_kr_state = 0;
+	always @(posedge slow_clk) begin
+		case (bmc_startup_kr_state)
+			0: begin
+				bmc_startup_kr <= 3'b100;
+				bmc_startup_kr_state <= 1;
+			end
+			1: begin
+				bmc_startup_kr <= 3'b010;
+				bmc_startup_kr_state <= 2;
+			end
+			2: begin
+				bmc_startup_kr <= 3'b001;
+				bmc_startup_kr_state <= 3;
+			end
+			3: begin
+				bmc_startup_kr <= 3'b010;
+				bmc_startup_kr_state <= 0;
+			end
+			default: begin
+				bmc_startup_kr_state = 0;
+			end
+		endcase
+	end
 	
 	assign i2c_rst = 1'b0;
 	// Handle I2C
@@ -192,24 +259,24 @@ module system_fpga_top
 		else if (i2c_read_req == 1'b1) begin
 			i2c_reg_cur <= i2c_reg_cur + 1;
 		end
-		case(i2c_reg_cur)
-			i2c_clr_err_addr : begin
+		case (i2c_reg_cur)
+			i2c_clr_err_addr: begin
 				i2c_data_to_master <= 8'b11111111;
 			end
-			i2c_pg_reg_addr1 : begin
+			i2c_pg_reg_addr1: begin
 				i2c_data_to_master <= i2c_pg_reg[15:8];
 			end
-			i2c_pg_reg_addr2 : begin
+			i2c_pg_reg_addr2: begin
 				i2c_data_to_master <= i2c_pg_reg[7:0];
 			end
-			i2c_status_reg_addr : begin
+			i2c_status_reg_addr: begin
 				// TODO add CPU1 presence detect
 				i2c_data_to_master <= {3'b000, wait_err, operation_err, err_found, sysen_buf, sysgood_buf};
 			end
-			i2c_version_reg_addr : begin
+			i2c_version_reg_addr: begin
 				i2c_data_to_master <= fpga_version;
 			end
-			default : begin
+			default: begin
 				i2c_data_to_master <= 8'b00000000;
 			end
 		endcase
@@ -548,11 +615,33 @@ module system_fpga_top
 	assign usbhub_rst = sysgood_buf & bmc_software_pg;
 	assign fan_rst = ~bmc_vr_pg;
 
-	// debug_in override allows non-BMC control of CPLD
+	// debug_in override allows non-BMC control of FPGA
 	assign sysen_buf = sysen | ~debug_in;
 	// assign sysen_buf = ~debug_in;
 
+	// Enable V5_0_DUAL rail
 	assign dual_5v_ctrl = 1'b0;
+
+	// Enable PMC
+	assign pmc_disable_n = 1'b1;
+
+	// Not used
 	assign window_open_n = 1'b0;
+
+	// Generate standard front panel NIC activity indications
+	assign panel_nic1_led_cathode_std = (nic1_link_led_n & nic1_green_led_n) & ~nic1_act_led_n;
+	assign panel_nic2_led_cathode_std = (nic2_link_led_n & nic2_green_led_n) & ~nic2_act_led_n;
+
+	// Wire up UID request to front panel
+	assign panel_uid_led_std = bmc_uid_led_req;
+
+	// Assign front panel indicators according to BMC status
+	assign panel_nic1_led_cathode = (bmc_software_pg)?panel_nic1_led_cathode_std:bmc_startup_kr[0];
+	assign panel_nic2_led_cathode = (bmc_software_pg)?panel_nic2_led_cathode_std:bmc_startup_kr[1];
+	assign panel_uid_led = (bmc_software_pg)?panel_uid_led_std:bmc_startup_kr[2];
+
+	// Generate master reset request signals
+	assign master_reset_reqest = ~(panel_reset_in_l & flexver_reset_in_l);
+	assign bmc_system_reset_request_n = ~master_reset_reqest;
 	
 endmodule

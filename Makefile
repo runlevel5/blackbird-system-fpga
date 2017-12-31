@@ -22,11 +22,11 @@ YOSYS_ICE40_SIM_LIB = $(shell yosys-config --datdir/ice40/cells_sim.v)
 
 .PRECIOUS: system_fpga_%.int
 
-system_fpga_%.tmg: system_fpga_%.int
+system_fpga_%.tmg: system_fpga_%.int system_fpga.pcf
 	echo "Total path delay: inf ns (0.0 MHz)" > $@
 	-icetime -tmd hx1k -p system_fpga.pcf -P vq100 $< > $@ 2>&1
 
-system_fpga_%.int: system_fpga.blif
+system_fpga_%.int: system_fpga.blif system_fpga.pcf
 	echo "" > $@
 	-arachne-pnr -s $* -d 1k -P vq100 -m $(MAX_FPGA_ROUTE_PASSES) -p system_fpga.pcf $< -o $@
 
