@@ -59,7 +59,7 @@ system_fpga.int: system_fpga_1.tmg system_fpga_2.tmg system_fpga_3.tmg system_fp
 	for trial in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64; do							\
 		CURRENT_TRIAL_RESULT=$$(cat system_fpga_$${trial}.tmg | grep "Total path delay" | awk '{print $$6}' | sed 's/(//g');																\
 		if [ "$$CURRENT_TRIAL_RESULT" != "" ]; then																									\
-			echo "system_fpga_$${trial}.tmg : $$CURRENT_TRIAL_RESULT";																							\
+			echo "system_fpga_$${trial}.tmg : $$CURRENT_TRIAL_RESULT";																						\
 			COMPARISON_RESULT=$$(echo "$$CURRENT_TRIAL_RESULT > $$BEST_TRIAL_RESULT" | bc -l);																			\
 			if [ $$COMPARISON_RESULT -eq 1 ]; then																									\
 				BEST_TRIAL=system_fpga_$${trial}.tmg;																								\
@@ -67,6 +67,11 @@ system_fpga.int: system_fpga_1.tmg system_fpga_2.tmg system_fpga_3.tmg system_fp
 			fi;																													\
 		fi;																														\
 	done;																															\
+	if [ "$$BEST_TRIAL_RESULT" -eq "0" ]; then																										\
+		echo "Unable to determine fastest result.  Selecting first run....";																						\
+		BEST_TRIAL=system_fpga_1.tmg;																											\
+		BEST_TRIAL_RESULT=0;																												\
+	fi;																															\
 	echo "Fastest result: $$BEST_TRIAL : $$BEST_TRIAL_RESULT";																								\
 	cp `echo $$BEST_TRIAL | sed 's/\.tmg/\.int/g'` system_fpga.int;																								\
 	cp $$BEST_TRIAL system_fpga.tmg
