@@ -1,5 +1,5 @@
 // Copyright © 2017, International Business Machines Corp.
-// Copyright © 2017 Raptor Engineering, LLC
+// Copyright © 2017 - 2018 Raptor Engineering, LLC
 // All Rights Reserved
 //
 // See LICENSE file for licensing details
@@ -680,7 +680,7 @@ module system_fpga_top
 	always @(posedge clk_in) begin
 		bmc_rst = bmc_vr_pg;
 		usbhub_rst = sysgood_buf & bmc_software_pg;
-		fan_rst = ~bmc_vr_pg;
+		fan_rst = bmc_vr_pg;
 	end
 
 	// debug_in override allows non-BMC control of FPGA
