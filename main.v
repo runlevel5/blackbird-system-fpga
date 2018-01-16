@@ -69,7 +69,7 @@ module system_fpga_top
 		output reg bmc_rst,
 		output reg fan_rst,
 		output reg usbhub_rst,
-		output reg cpu_stby_rst,
+		inout cpu_stby_rst,
 
 		// Reserved for future use
 		output reg dual_5v_ctrl,
@@ -100,6 +100,19 @@ module system_fpga_top
 
 		// FlexVer™ connections
 		input wire flexver_reset_in_l
+	);
+
+	// CPU standby reset is on 1.1V domain, but FPGA I/Os are on 3.3V domain
+	// Use open-drain reset signal
+	reg cpu_stby_rst_assert = 1'b1;
+
+	SB_IO #(
+		.PIN_TYPE(6'b101001),
+		.PULLUP(1'b0)
+	) cpu_stby_rst_io (
+		.PACKAGE_PIN(cpu_stby_rst),
+		.OUTPUT_ENABLE(cpu_stby_rst_assert),
+		.D_OUT_0(1'b0)
 	);
 
 	// I2C pin control lines
@@ -673,7 +686,7 @@ module system_fpga_top
 
 	// CPU Reset
 	always @(posedge clk_in) begin
-		cpu_stby_rst = en_buf[0];
+		cpu_stby_rst_assert = ~en_buf[0];
 	end
 
 	// BMC RESETs
