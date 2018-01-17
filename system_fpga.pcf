@@ -85,7 +85,7 @@ set_io cpub_clk_oeb 9
 
 # Resets
 set_io lpc_rst 82
-set_io bmc_software_pg 8
+set_io bmc_boot_complete_n 8
 set_io bmc_rst 83
 set_io fan_rst 1
 set_io usbhub_rst 87

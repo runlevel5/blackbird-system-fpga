@@ -65,7 +65,7 @@ module system_fpga_top
 
 		// Resets
 		output reg lpc_rst,
-		input wire bmc_software_pg,
+		input wire bmc_boot_complete_n,
 		output reg bmc_rst,
 		output reg fan_rst,
 		output reg usbhub_rst,
@@ -263,6 +263,7 @@ module system_fpga_top
 	wire panel_nic2_led_cathode_std;
 	wire panel_uid_led_std;
 	reg [2:0] bmc_startup_kr = 3'b000;
+	reg [2:0] bmc_startup_fader = 3'b000;
 
 	// Implement nasty ring oscillator for fallback use when main system clock is offline
 	// Thanks to Clifford Wolf for the idea and basic code!
@@ -355,7 +356,36 @@ module system_fpga_top
 			end
 		endcase
 	end
-	
+
+	// Generate fading lamp test for front panel
+	wire fader_clk;
+	reg [12:0] fader_clk_counter;
+	always @(posedge clk_in) begin
+		fader_clk_counter <= fader_clk_counter + 1;
+	end
+	assign fader_clk = fader_clk_counter[12];
+
+	reg [5:0] fader_pwm_level = 0;
+	reg [6:0] fader_pwm_internal_counter = 0;
+	always @(posedge fader_clk) begin
+		fader_pwm_internal_counter = fader_pwm_internal_counter + 1;
+		if (fader_pwm_internal_counter >= 64) begin
+			fader_pwm_level = 63 - (fader_pwm_internal_counter - 64);
+		end else begin
+			fader_pwm_level = fader_pwm_internal_counter;
+		end
+	end
+
+	reg [5:0] fader_pwm_counter = 0;
+	always @(posedge clk_in) begin
+		fader_pwm_counter = fader_pwm_counter + 1;
+		if (fader_pwm_counter >= fader_pwm_level) begin
+			bmc_startup_fader = 3'b000;
+		end else begin
+			bmc_startup_fader = 3'b111;
+		end
+	end
+
 	assign i2c_rst = 1'b0;
 	// Handle I2C
 	// 2 8-bit registers with PGOOD state on error
@@ -753,7 +783,7 @@ module system_fpga_top
 	// System PWRGOOD
 	always @(posedge clk_in) begin
 		sysgood_buf = delay_done[14];
-		sysgood = sysgood_buf & bmc_software_pg;
+		sysgood = sysgood_buf & ~bmc_boot_complete_n;
 		lpc_rst = sysgood_buf;
 	end
 
@@ -765,7 +795,7 @@ module system_fpga_top
 	// BMC RESETs
 	always @(posedge clk_in) begin
 		bmc_rst = bmc_vr_pg;
-		usbhub_rst = sysgood_buf & bmc_software_pg;
+		usbhub_rst = sysgood_buf & ~bmc_boot_complete_n;
 		fan_rst = bmc_vr_pg;
 	end
 
@@ -803,14 +833,14 @@ module system_fpga_top
 
 	// Assign front panel indicators according to BMC status
 	always @(posedge clk_in) begin
-		if (bmc_software_pg) begin
+		if (!bmc_boot_complete_n) begin
 			panel_nic1_led_cathode = panel_nic1_led_cathode_std;
 			panel_nic2_led_cathode = panel_nic2_led_cathode_std;
 			panel_uid_led = panel_uid_led_std;
 		end else begin
-			panel_nic1_led_cathode = bmc_startup_kr[0];
-			panel_nic2_led_cathode = bmc_startup_kr[1];
-			panel_uid_led = bmc_startup_kr[2];
+			panel_nic1_led_cathode = bmc_startup_fader[0];
+			panel_nic2_led_cathode = bmc_startup_fader[1];
+			panel_uid_led = bmc_startup_fader[2];
 		end
 	end
 
