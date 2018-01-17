@@ -325,11 +325,11 @@ module system_fpga_top
 
 	// Generate BMC startup "Knight Rider" display for front panel
 	wire slow_clk;
-	reg [24:0] slow_clk_counter;
+	reg [16:0] slow_clk_counter;
 	always @(posedge clk_in) begin
 		slow_clk_counter <= slow_clk_counter + 1;
 	end
-	assign slow_clk = slow_clk_counter[24];
+	assign slow_clk = slow_clk_counter[16];
 
 	reg [1:0] bmc_startup_kr_state = 0;
 	always @(posedge slow_clk) begin
