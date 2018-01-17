@@ -189,6 +189,10 @@ module system_fpga_top
 	parameter i2c_pg_reg_addr1 = 8'b00000101;
 	parameter i2c_pg_reg_addr2 = i2c_pg_reg_addr1 + 1;
 	parameter i2c_status_reg_addr = i2c_pg_reg_addr2 + 1;
+	parameter i2c_pwr_en_stat_reg_addr1 = i2c_status_reg_addr + 1;
+	parameter i2c_pwr_en_stat_reg_addr2 = i2c_pwr_en_stat_reg_addr1 + 1;
+	parameter i2c_pg_stat_reg_addr1 = i2c_pwr_en_stat_reg_addr2 + 1;
+	parameter i2c_pg_stat_reg_addr2 = i2c_pg_stat_reg_addr1 + 1;
 	parameter i2c_version_reg_addr = 8'b00000000;
 	parameter i2c_vendor_id_reg_addr1 = 8'b00001100;
 	parameter i2c_vendor_id_reg_addr2 = i2c_vendor_id_reg_addr1 + 1;
@@ -325,6 +329,18 @@ module system_fpga_top
 			end
 			i2c_status_reg_addr: begin
 				i2c_data_to_master <= {2'b00, ~cpub_present_n, wait_err, operation_err, err_found, sysen_buf, sysgood_buf};
+			end
+			i2c_pwr_en_stat_reg_addr1: begin
+				i2c_data_to_master <= en_buf[7:0];
+			end
+			i2c_pwr_en_stat_reg_addr2: begin
+				i2c_data_to_master <= en_buf[RAIL_SIZE-1:8];
+			end
+			i2c_pg_stat_reg_addr1: begin
+				i2c_data_to_master <= pg_buf[7:0];
+			end
+			i2c_pg_stat_reg_addr2: begin
+				i2c_data_to_master <= pg_buf[RAIL_SIZE-1:8];
 			end
 			i2c_vendor_id_reg_addr1: begin
 				i2c_data_to_master <= vendor_id1;
