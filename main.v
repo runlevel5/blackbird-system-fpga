@@ -82,18 +82,18 @@ module system_fpga_top
 		output reg pmc_disable_n,
 
 		// System status lines
-		input wire nic1_act_led_n,
-		input wire nic2_act_led_n,
-		input wire nic1_link_led_n,
-		input wire nic2_link_led_n,
+		inout nic1_act_led_n,
+		inout nic2_act_led_n,
+		inout nic1_link_led_n,
+		inout nic2_link_led_n,
 		input wire nic1_green_led_n,
 		input wire nic2_green_led_n,
 		input wire bmc_uid_led_req,
 
 		// Front panel indicators
-		output wire panel_nic1_led_cathode,
-		output wire panel_nic2_led_cathode,
-		output wire panel_uid_led,
+		output reg panel_nic1_led_cathode,
+		output reg panel_nic2_led_cathode,
+		output reg panel_uid_led,
 
 		// Front panel switches
 		input wire panel_reset_in_l,
@@ -113,6 +113,63 @@ module system_fpga_top
 		.PACKAGE_PIN(cpu_stby_rst),
 		.OUTPUT_ENABLE(cpu_stby_rst_assert),
 		.D_OUT_0(1'b0)
+	);
+
+	// Make NIC activity lights work
+	// WARNING: Hic Sunt Dracones!
+	//
+	// The base reference design Talos is built on never quite got the networking LEDs correct.
+	// After two iterations of nonfunctional SuperMicro / IBM design and no direct access to Broadcom
+	// documentation, Raptor decided the rear LED functionality was not important enough to hold up
+	// the entire Talos project.  As a result, the three offending signals were wired up to this
+	// FPGA, and the front panel LEDs were isolated from the Broadcom NIC and connected to this FPGA.
+	//
+	// Detailed testing on production hardware subsequently revealed the LED drivers are all open drain,
+	// active low, with no pull-up provided on the activity line.  Furthermore, LINKLED_L is anything but
+	// what it says on the tin; it appears to only go low when in 10Mbps mode.  To top off this whole mess,
+	// the last reference design errata led to the anode and cathode of the activity LED being swapped.
+	//
+	// What this means in practice:
+	// 1.) The FPGA needs to provide some degree of pull-up to 3.3V on the NIC activity lines
+	// 2.) LINKLED_L needs to be pulled high whenever GRNLED_L is low
+	//
+	// With these workarounds, the network link and activity LEDs on the front and rear panel function normally.
+	wire nic1_act_led_n_in;
+	wire nic2_act_led_n_in;
+
+	SB_IO #(
+		.PIN_TYPE(6'b101001),
+		.PULLUP(1'b1)
+	) nic1_act_led_n_io (
+		.PACKAGE_PIN(nic1_act_led_n),
+		.OUTPUT_ENABLE(1'b0),
+		.D_OUT_0(1'b1),
+		.D_IN_0(nic1_act_led_n_in)
+	);
+	SB_IO #(
+		.PIN_TYPE(6'b101001),
+		.PULLUP(1'b1)
+	) nic2_act_led_n_io (
+		.PACKAGE_PIN(nic2_act_led_n),
+		.OUTPUT_ENABLE(1'b0),
+		.D_OUT_0(1'b1),
+		.D_IN_0(nic2_act_led_n_in)
+	);
+	SB_IO #(
+		.PIN_TYPE(6'b101001),
+		.PULLUP(1'b1)
+	) nic1_link_led_n_io (
+		.PACKAGE_PIN(nic1_link_led_n),
+		.OUTPUT_ENABLE(~nic1_green_led_n),
+		.D_OUT_0(1'b1)
+	);
+	SB_IO #(
+		.PIN_TYPE(6'b101001),
+		.PULLUP(1'b1)
+	) nic2_link_led_n_io (
+		.PACKAGE_PIN(nic2_link_led_n),
+		.OUTPUT_ENABLE(~nic2_green_led_n),
+		.D_OUT_0(1'b1)
 	);
 
 	// I2C pin control lines
@@ -735,8 +792,8 @@ module system_fpga_top
 
 	// Generate standard front panel NIC activity indications
 	always @(posedge clk_in) begin
-		panel_nic1_led_cathode_std = (nic1_link_led_n & nic1_green_led_n) & ~nic1_act_led_n;
-		panel_nic2_led_cathode_std = (nic2_link_led_n & nic2_green_led_n) & ~nic2_act_led_n;
+		panel_nic1_led_cathode_std = ~(nic1_act_led_n_in & ~nic1_green_led_n);
+		panel_nic2_led_cathode_std = ~(nic2_act_led_n_in & ~nic2_green_led_n);
 	end
 
 	// Wire up UID request to front panel
@@ -745,9 +802,17 @@ module system_fpga_top
 	end
 
 	// Assign front panel indicators according to BMC status
-	assign panel_nic1_led_cathode = (bmc_software_pg)?panel_nic1_led_cathode_std:bmc_startup_kr[0];
-	assign panel_nic2_led_cathode = (bmc_software_pg)?panel_nic2_led_cathode_std:bmc_startup_kr[1];
-	assign panel_uid_led = (bmc_software_pg)?panel_uid_led_std:bmc_startup_kr[2];
+	always @(posedge clk_in) begin
+		if (bmc_software_pg) begin
+			panel_nic1_led_cathode = panel_nic1_led_cathode_std;
+			panel_nic2_led_cathode = panel_nic2_led_cathode_std;
+			panel_uid_led = panel_uid_led_std;
+		end else begin
+			panel_nic1_led_cathode = bmc_startup_kr[0];
+			panel_nic2_led_cathode = bmc_startup_kr[1];
+			panel_uid_led = bmc_startup_kr[2];
+		end
+	end
 
 	// Generate master reset request signals
 	always @(posedge clk_in) begin
