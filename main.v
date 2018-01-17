@@ -76,7 +76,7 @@ module system_fpga_top
 		output reg window_open_n,
 
 		// BMC system reset signalling
-		output reg bmc_system_reset_request_n,
+		inout bmc_system_reset_request_n,
 
 		// Component disable lines
 		output reg pmc_disable_n,
@@ -170,6 +170,21 @@ module system_fpga_top
 		.PACKAGE_PIN(nic2_link_led_n),
 		.OUTPUT_ENABLE(~nic2_green_led_n),
 		.D_OUT_0(1'b1)
+	);
+
+	// The chassis reset request line serves two purposes
+	// 1.) While the BMC is offline, it indicates U-Boot / Kernel boot phase (1 / 0, respectively)
+	// 2.) When the BMC goes online, it serves as the active low chassis reset request line
+	reg chassis_reset_request = 1'b0;
+	wire bmc_boot_phase_in;
+	SB_IO #(
+		.PIN_TYPE(6'b101001),
+		.PULLUP(1'b1)
+	) bmc_system_reset_request_n_io (
+		.PACKAGE_PIN(bmc_system_reset_request_n),
+		.OUTPUT_ENABLE(~bmc_boot_complete_n),
+		.D_OUT_0(~chassis_reset_request),
+		.D_IN_0(bmc_boot_phase_in)
 	);
 
 	// I2C pin control lines
@@ -383,6 +398,23 @@ module system_fpga_top
 			bmc_startup_fader = 3'b000;
 		end else begin
 			bmc_startup_fader = 3'b111;
+		end
+	end
+
+	// Determine BMC boot phase
+	reg [1:0] bmc_boot_phase = 0;
+	always @(posedge clk_in) begin
+		if (!bmc_rst || (bmc_boot_complete_n && (bmc_boot_phase == 2))) begin
+			bmc_boot_phase = 0;
+		end else begin
+			if (bmc_boot_phase == 0) begin
+				if (!bmc_boot_phase_in) begin
+					bmc_boot_phase = 1;
+				end
+			end
+			if (!bmc_boot_complete_n) begin
+				bmc_boot_phase = 2;
+			end
 		end
 	end
 
@@ -833,21 +865,31 @@ module system_fpga_top
 
 	// Assign front panel indicators according to BMC status
 	always @(posedge clk_in) begin
-		if (!bmc_boot_complete_n) begin
+		if (bmc_boot_phase == 0) begin
+			// U-Boot phase
+			panel_nic1_led_cathode = bmc_startup_kr[0];
+			panel_nic2_led_cathode = bmc_startup_kr[1];
+			panel_uid_led = bmc_startup_kr[2];
+		end else if (bmc_boot_phase == 1) begin
+			// Kernel phase
+			panel_nic1_led_cathode = bmc_startup_fader[0];
+			panel_nic2_led_cathode = bmc_startup_fader[1];
+			panel_uid_led = bmc_startup_fader[2];
+		end else if (bmc_boot_phase == 2) begin
 			panel_nic1_led_cathode = panel_nic1_led_cathode_std;
 			panel_nic2_led_cathode = panel_nic2_led_cathode_std;
 			panel_uid_led = panel_uid_led_std;
 		end else begin
-			panel_nic1_led_cathode = bmc_startup_fader[0];
-			panel_nic2_led_cathode = bmc_startup_fader[1];
-			panel_uid_led = bmc_startup_fader[2];
+			panel_nic1_led_cathode = 1'b1;
+			panel_nic2_led_cathode = 1'b1;
+			panel_uid_led = panel_uid_led_std;
 		end
 	end
 
 	// Generate master reset request signals
 	always @(posedge clk_in) begin
 		master_reset_reqest = ~(panel_reset_in_l & flexver_reset_in_l);
-		bmc_system_reset_request_n = ~master_reset_reqest;
+		chassis_reset_request = master_reset_reqest;
 	end
 	
 endmodule
