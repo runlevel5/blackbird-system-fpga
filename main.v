@@ -437,7 +437,7 @@ module system_fpga_top
 		else if ((sysen_s2 == 1'b0 || err_found == 1'b1)) begin
 			w_count <= {24{1'b0}};
 			d_count <= {17{1'b0}};
-			delay_done <= {(((RAIL_SIZE - 1))-((0))+1){1'b0}};
+			delay_done <= 0;
 		end
 		else if ((pg_s2[0] == 1'b1 && en_buf[0] == 1'b1 && delay_done[0] == 1'b0)) begin
 			w_count <= {24{1'b0}};
@@ -726,7 +726,7 @@ module system_fpga_top
 		en_buf[1] = ((sysen_s2 & delay_done[0]) | pg_s2[2]) & ~err_found;
 		en_buf[2] = ((sysen_s2 & delay_done[1]) | pg_s2[3]) & ~err_found;
 		en_buf[3] = ((sysen_s2 & delay_done[2]) | pg_s2[4]) & ~err_found;
-		en_buf[4] = ((sysen_s2 & delay_done[ + 1]) | pg_s2[ + 1]) & ~err_found;
+		en_buf[4] = ((sysen_s2 & delay_done[3]) | pg_s2[5]) & ~err_found;
 		en_buf[5] = ((sysen_s2 & delay_done[4]) | pg_s2[6]) & ~err_found;
 		en_buf[6] = ((sysen_s2 & delay_done[5]) | pg_s2[7]) & ~err_found;
 		en_buf[7] = ((sysen_s2 & delay_done[6]) | pg_s2[8]) & ~err_found;
