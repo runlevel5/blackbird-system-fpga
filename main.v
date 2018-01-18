@@ -279,6 +279,8 @@ module system_fpga_top
 	wire panel_uid_led_std;
 	reg [2:0] bmc_startup_kr = 3'b000;
 	reg [2:0] bmc_startup_fader = 3'b000;
+	reg [2:0] bmc_startup_staggered_fader = 3'b000;
+	reg bmc_startup_staggered_fader_common = 1'b0;
 
 	// Implement nasty ring oscillator for fallback use when main system clock is offline
 	// Thanks to Clifford Wolf for the idea and basic code!
@@ -389,8 +391,16 @@ module system_fpga_top
 		end else begin
 			fader_pwm_level = fader_pwm_internal_counter;
 		end
+
+		if (fader_pwm_internal_counter == 0) begin
+			fader_sequence_step = fader_sequence_step + 1;
+			if (fader_sequence_step > 2) begin
+				fader_sequence_step = 0;
+			end
+		end
 	end
 
+	reg [1:0] fader_sequence_step = 0;
 	reg [5:0] fader_pwm_counter = 0;
 	always @(posedge clk_in) begin
 		fader_pwm_counter = fader_pwm_counter + 1;
@@ -398,6 +408,27 @@ module system_fpga_top
 			bmc_startup_fader = 3'b000;
 		end else begin
 			bmc_startup_fader = 3'b111;
+		end
+		if (fader_pwm_counter >= fader_pwm_level) begin
+			bmc_startup_staggered_fader_common = 1'b0;
+		end else begin
+			bmc_startup_staggered_fader_common = 1'b1;
+		end
+	end
+
+	always @(posedge clk_in) begin
+		if (fader_sequence_step == 0) begin
+			bmc_startup_staggered_fader[0] = bmc_startup_staggered_fader_common;
+			bmc_startup_staggered_fader[1] = 1'b0;
+			bmc_startup_staggered_fader[2] = 1'b0;
+		end else if (fader_sequence_step == 1) begin
+			bmc_startup_staggered_fader[0] = 1'b0;
+			bmc_startup_staggered_fader[1] = bmc_startup_staggered_fader_common;
+			bmc_startup_staggered_fader[2] = 1'b0;
+		end else begin
+			bmc_startup_staggered_fader[0] = 1'b0;
+			bmc_startup_staggered_fader[1] = 1'b0;
+			bmc_startup_staggered_fader[2] = bmc_startup_staggered_fader_common;
 		end
 	end
 
@@ -867,14 +898,14 @@ module system_fpga_top
 	always @(posedge clk_in) begin
 		if (bmc_boot_phase == 0) begin
 			// U-Boot phase
-			panel_nic1_led_cathode = bmc_startup_kr[0];
-			panel_nic2_led_cathode = bmc_startup_kr[1];
-			panel_uid_led = bmc_startup_kr[2];
+			panel_nic1_led_cathode = ~bmc_startup_staggered_fader[0];
+			panel_nic2_led_cathode = ~bmc_startup_staggered_fader[1];
+			panel_uid_led = ~bmc_startup_staggered_fader[2];
 		end else if (bmc_boot_phase == 1) begin
 			// Kernel phase
-			panel_nic1_led_cathode = bmc_startup_fader[0];
-			panel_nic2_led_cathode = bmc_startup_fader[1];
-			panel_uid_led = bmc_startup_fader[2];
+			panel_nic1_led_cathode = ~bmc_startup_fader[0];
+			panel_nic2_led_cathode = ~bmc_startup_fader[1];
+			panel_uid_led = ~bmc_startup_fader[2];
 		end else if (bmc_boot_phase == 2) begin
 			panel_nic1_led_cathode = panel_nic1_led_cathode_std;
 			panel_nic2_led_cathode = panel_nic2_led_cathode_std;
