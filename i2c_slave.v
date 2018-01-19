@@ -1,5 +1,5 @@
 // Copyright © 2014-2016 Peter Samarin
-// Copyright © 2017 Raptor Engineering, LLC
+// Copyright © 2017-2018 Raptor Engineering, LLC
 // All Rights Reserved
 //
 // See I2C_SLAVE_LICENSE file for licensing details
@@ -20,7 +20,8 @@ module i2c_slave(
 		output wire read_req,
 		input wire [7:0] data_to_master,
 		output wire data_valid,
-		output wire [7:0] data_from_master
+		output wire [7:0] data_from_master,
+		output wire [7:0] write_cycle_count
 	);
 
 	parameter [6:0] SLAVE_ADDR = 0;
@@ -47,6 +48,7 @@ module i2c_slave(
 	reg scl_falling_reg = 1'b0; 	// Address and data received from master
 	reg [6:0] addr_reg = 1'b0;
 	reg [7:0] data_reg = 1'b0; 	// Delayed SCL (by 1 clock cycle, and by 2 clock cycles)
+	reg [7:0] wr_cyc_count_reg = 8'b00000000;
 	reg scl_reg = 1'b1;
 	reg scl_prev_reg = 1'b1; 	// Slave writes on scl
 	wire scl_wen_reg = 1'b0;
@@ -110,6 +112,7 @@ module i2c_slave(
 				if (start_reg == 1'b1) begin
 					state_reg <= i2c_get_address_and_cmd;
 					bits_processed_reg <= 0;
+					wr_cyc_count_reg <= 0;
 				end
 			end
 			i2c_get_address_and_cmd : begin
@@ -163,6 +166,7 @@ module i2c_slave(
 					end
 					if (bits_processed_reg == 7) begin
 						data_valid_reg <= 1'b1;
+						wr_cyc_count_reg <= wr_cyc_count_reg + 1;
 					end
 				end
 				if (scl_falling_reg == 1'b1 && bits_processed_reg == 8) begin
@@ -231,10 +235,12 @@ module i2c_slave(
 		if (start_reg == 1'b1) begin
 			state_reg <= i2c_get_address_and_cmd;
 			bits_processed_reg <= 0;
+			wr_cyc_count_reg <= 0;
 		end
 		if (stop_reg == 1'b1) begin
 			state_reg <= i2c_idle;
 			bits_processed_reg <= 0;
+			wr_cyc_count_reg <= 0;
 		end
 		if (rst == 1'b1) begin
 			state_reg <= i2c_idle;
@@ -254,6 +260,7 @@ module i2c_slave(
 	// Master writes
 	assign data_valid = data_valid_reg;
 	assign data_from_master = data_reg;
+	assign write_cycle_count = wr_cyc_count_reg;
 	// Master reads
 	assign read_req = read_req_reg;
 	

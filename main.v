@@ -253,6 +253,7 @@ module system_fpga_top
 	wire i2c_read_req;
 	reg [7:0] i2c_data_to_master = 8'b00000000;
 	wire [7:0] i2c_data_from_master;
+	wire [7:0] i2c_write_cycle_count;
 	wire i2c_data_valid;
 	wire i2c_rst = 1'b0;
 	reg [7:0] i2c_reg_cur = 8'b00000000;
@@ -270,8 +271,10 @@ module system_fpga_top
 	parameter i2c_vendor_id_reg_addr2 = i2c_vendor_id_reg_addr1 + 1;
 	parameter i2c_vendor_id_reg_addr3 = i2c_vendor_id_reg_addr1 + 2;
 	parameter i2c_vendor_id_reg_addr4 = i2c_vendor_id_reg_addr1 + 3;
+	parameter i2c_led_override_reg_addr = 8'b00010000;
 	reg [15:0] i2c_pg_reg = 1'b0;
 	reg i2c_clr_err = 1'b0;
+	reg [7:0] i2c_write_reg_latch = 0;
 
 	// Front panel control signals
 	wire panel_nic1_led_cathode_std;
@@ -281,6 +284,10 @@ module system_fpga_top
 	reg [2:0] bmc_startup_fader = 3'b000;
 	reg [2:0] bmc_startup_staggered_fader = 3'b000;
 	reg bmc_startup_staggered_fader_common = 1'b0;
+	reg hostboot_startup_fader_common_low_internal = 1'b0;
+	reg hostboot_startup_fader_common_low = 1'b0;
+	reg hostboot_startup_fader_common_high = 1'b0;
+	reg [7:0] led_override_request = 8'b00000000;
 
 	// Implement nasty ring oscillator for fallback use when main system clock is offline
 	// Thanks to Clifford Wolf for the idea and basic code!
@@ -338,7 +345,8 @@ module system_fpga_top
 		.read_req(i2c_read_req),
 		.data_to_master(i2c_data_to_master),
 		.data_valid(i2c_data_valid),
-		.data_from_master(i2c_data_from_master)
+		.data_from_master(i2c_data_from_master),
+		.write_cycle_count(i2c_write_cycle_count)
 	);
 
 	// Generate BMC startup "Knight Rider" display for front panel
@@ -414,6 +422,16 @@ module system_fpga_top
 		end else begin
 			bmc_startup_staggered_fader_common = 1'b1;
 		end
+		if (fader_pwm_counter >= 32) begin
+			hostboot_startup_fader_common_low_internal = 1'b0;
+		end else begin
+			hostboot_startup_fader_common_low_internal = 1'b1;
+		end
+		if (fader_pwm_counter >= (fader_pwm_level >> 1) + 32) begin
+			hostboot_startup_fader_common_high = 1'b0;
+		end else begin
+			hostboot_startup_fader_common_high = 1'b1;
+		end
 	end
 
 	always @(posedge clk_in) begin
@@ -429,6 +447,14 @@ module system_fpga_top
 			bmc_startup_staggered_fader[0] = 1'b0;
 			bmc_startup_staggered_fader[1] = 1'b0;
 			bmc_startup_staggered_fader[2] = bmc_startup_staggered_fader_common;
+		end
+
+		if (fader_sequence_step == 0) begin
+			hostboot_startup_fader_common_low = hostboot_startup_fader_common_high;
+		end else if (fader_sequence_step == 1) begin
+			hostboot_startup_fader_common_low = hostboot_startup_fader_common_low_internal;
+		end else begin
+			hostboot_startup_fader_common_low = hostboot_startup_fader_common_low_internal;
 		end
 	end
 
@@ -451,7 +477,6 @@ module system_fpga_top
 
 	assign i2c_rst = 1'b0;
 	// Handle I2C
-	// 2 8-bit registers with PGOOD state on error
 	always @(posedge clk_in) begin
 		i2c_clr_err <= 1'b0;
 
@@ -462,6 +487,17 @@ module system_fpga_top
 			// pulse clear err signal if i2c master reads register 0x03
 			if (((i2c_data_from_master) == i2c_clr_err_addr)) begin
 				i2c_clr_err <= 1'b1;
+			end
+
+			// handle write setup
+			if (i2c_write_cycle_count == 1) begin
+				i2c_write_reg_latch <= i2c_data_from_master;
+			end else if (i2c_write_cycle_count == 2) begin
+				case (i2c_write_reg_latch)
+					i2c_led_override_reg_addr: begin
+						led_override_request <= i2c_data_from_master;
+					end
+				endcase
 			end
 		end
 		else if (i2c_read_req == 1'b1) begin
@@ -907,9 +943,21 @@ module system_fpga_top
 			panel_nic2_led_cathode = ~bmc_startup_fader[1];
 			panel_uid_led = ~bmc_startup_fader[2];
 		end else if (bmc_boot_phase == 2) begin
-			panel_nic1_led_cathode = panel_nic1_led_cathode_std;
-			panel_nic2_led_cathode = panel_nic2_led_cathode_std;
-			panel_uid_led = panel_uid_led_std;
+			if (led_override_request != 0) begin
+				if (led_override_request[3]) begin
+					panel_nic1_led_cathode = ~(led_override_request[0] & hostboot_startup_fader_common_high);
+					panel_nic2_led_cathode = ~(led_override_request[1] & hostboot_startup_fader_common_high);
+					panel_uid_led = ~(led_override_request[2] & hostboot_startup_fader_common_high);
+				end else begin
+					panel_nic1_led_cathode = ~(led_override_request[0] & hostboot_startup_fader_common_low);
+					panel_nic2_led_cathode = ~(led_override_request[1] & hostboot_startup_fader_common_low);
+					panel_uid_led = ~(led_override_request[2] & hostboot_startup_fader_common_low);
+				end
+			end else begin
+				panel_nic1_led_cathode = panel_nic1_led_cathode_std;
+				panel_nic2_led_cathode = panel_nic2_led_cathode_std;
+				panel_uid_led = panel_uid_led_std;
+			end
 		end else begin
 			panel_nic1_led_cathode = 1'b1;
 			panel_nic2_led_cathode = 1'b1;
