@@ -14,9 +14,6 @@ module system_fpga_top
 		output reg sysgood,
 		input wire debug_in,
 
-		// DD1 temp fix for VCS overcurrent bug
-		input wire seq_cont,
-
 		// Enable outputs
 		output reg vdda_en,
 		output reg vddb_en,
@@ -237,8 +234,6 @@ module system_fpga_top
 	reg [RAIL_SIZE - 1:0] pg_s2 = {RAIL_SIZE{1'b0}};
 	reg sysen_s1 = 1'b0;
 	reg sysen_s2 = 1'b0;
-	reg seq_s1 = 1'b1;
-	reg seq_s2 = 1'b1;		// Timer (Watchdog and Delay) signals
 	reg [RAIL_SIZE - 1:0] delay_done = {RAIL_SIZE{1'b0}};
 	reg [23:0] w_count = 0;
 	reg [16:0] d_count = 0; 	// at 4.16MHz, w_count(23) being one means approximately 100ms have passed, good for checking watchdog between EN and PG
@@ -554,8 +549,6 @@ module system_fpga_top
 		pg_s2 <= pg_s1;
 		sysen_s1 <= sysen_buf;
 		sysen_s2 <= sysen_s1;
-		seq_s1 <= seq_cont;
-		seq_s2 <= seq_s1;
 		if ((clear_err == 1'b1)) begin
 			wait_err <= 1'b0;
 			operation_err <= 1'b0;
@@ -860,7 +853,7 @@ module system_fpga_top
 		en_buf[6] = ((sysen_s2 & delay_done[5]) | pg_s2[7]) & ~err_found;
 		en_buf[7] = ((sysen_s2 & delay_done[6]) | pg_s2[8]) & ~err_found;
 		en_buf[8] = ((sysen_s2 & delay_done[7]) | pg_s2[9]) & ~err_found;
-		en_buf[9] = (( ~seq_s2 & sysen_s2 & delay_done[8]) | pg_s2[10]) & ~err_found;
+		en_buf[9] = ((sysen_s2 & delay_done[8]) | pg_s2[10]) & ~err_found;
 		en_buf[10] = ((sysen_s2 & delay_done[9]) | pg_s2[11]) & ~err_found;
 		en_buf[11] = ((sysen_s2 & delay_done[10]) | pg_s2[12]) & ~err_found;
 		en_buf[12] = ((sysen_s2 & delay_done[11]) | pg_s2[13]) & ~err_found;

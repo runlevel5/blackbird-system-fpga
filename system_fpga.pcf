@@ -34,9 +34,6 @@ set_io sysen 15
 set_io sysgood 53
 set_io debug_in 25
 
-# Workaround Control
-set_io seq_cont 100
-
 # Power Plane Enable
 set_io vdda_en 72
 set_io vddb_en 79
