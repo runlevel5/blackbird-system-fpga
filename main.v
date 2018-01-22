@@ -115,6 +115,16 @@ module system_fpga_top
 		.D_OUT_0(1'b0)
 	);
 
+	// The reset line from FlexVer™ requires a pullup to 3.3V
+	wire flexver_reset_req_l;
+	SB_IO #(
+		.PIN_TYPE(6'b000001),
+		.PULLUP(1'b1)
+	) flexver_reset_in_l_io (
+		.PACKAGE_PIN(flexver_reset_in_l),
+		.D_IN_0(flexver_reset_req_l)
+	);
+
 	// Make NIC activity lights work
 	// WARNING: Hic Sunt Dracones!
 	//
@@ -949,8 +959,8 @@ module system_fpga_top
 
 	// Generate master reset request signals
 	always @(posedge clk_in) begin
-		master_reset_reqest = ~(panel_reset_in_l & flexver_reset_in_l);
-		bmc_system_reset_request_n = master_reset_reqest;
+		master_reset_reqest = ~(panel_reset_in_l & flexver_reset_req_l);
+		bmc_system_reset_request_n = ~master_reset_reqest;
 	end
 	
 endmodule
