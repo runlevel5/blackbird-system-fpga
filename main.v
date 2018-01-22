@@ -14,6 +14,9 @@ module system_fpga_top
 		output reg sysgood,
 		input wire debug_in,
 
+		// BMC status
+		input wire bmc_boot_phase_in,
+
 		// Enable outputs
 		output reg vdda_en,
 		output reg vddb_en,
@@ -167,21 +170,6 @@ module system_fpga_top
 		.PACKAGE_PIN(nic2_link_led_n),
 		.OUTPUT_ENABLE(~nic2_green_led_n),
 		.D_OUT_0(1'b1)
-	);
-
-	// The chassis reset request line serves two purposes
-	// 1.) While the BMC is offline, it indicates U-Boot / Kernel boot phase (1 / 0, respectively)
-	// 2.) When the BMC goes online, it serves as the active low chassis reset request line
-	reg chassis_reset_request = 1'b0;
-	wire bmc_boot_phase_in;
-	SB_IO #(
-		.PIN_TYPE(6'b101001),
-		.PULLUP(1'b1)
-	) bmc_system_reset_request_n_io (
-		.PACKAGE_PIN(bmc_system_reset_request_n),
-		.OUTPUT_ENABLE(~bmc_boot_complete_n),
-		.D_OUT_0(~chassis_reset_request),
-		.D_IN_0(bmc_boot_phase_in)
 	);
 
 	// I2C pin control lines
@@ -459,6 +447,7 @@ module system_fpga_top
 		if (!bmc_rst || (bmc_boot_complete_n && (bmc_boot_phase == 2))) begin
 			bmc_boot_phase = 0;
 		end else begin
+			// While the BMC is offline, bmc_boot_phase_in indicates U-Boot / Kernel boot phase (1 / 0, respectively)
 			if (bmc_boot_phase == 0) begin
 				if (!bmc_boot_phase_in) begin
 					bmc_boot_phase = 1;
@@ -961,7 +950,7 @@ module system_fpga_top
 	// Generate master reset request signals
 	always @(posedge clk_in) begin
 		master_reset_reqest = ~(panel_reset_in_l & flexver_reset_in_l);
-		chassis_reset_request = master_reset_reqest;
+		bmc_system_reset_request_n = master_reset_reqest;
 	end
 	
 endmodule
