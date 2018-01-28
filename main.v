@@ -923,37 +923,52 @@ module system_fpga_top
 	end
 
 	// Assign front panel indicators according to BMC status
+	reg panel_uid_led_req = 1'b0;
 	always @(posedge clk_in) begin
 		if (bmc_boot_phase == 0) begin
 			// U-Boot phase
 			panel_nic1_led_cathode = ~bmc_startup_staggered_fader[0];
 			panel_nic2_led_cathode = ~bmc_startup_staggered_fader[1];
-			panel_uid_led = ~bmc_startup_staggered_fader[2];
+			panel_uid_led_req = ~bmc_startup_staggered_fader[2];
 		end else if (bmc_boot_phase == 1) begin
 			// Kernel phase
 			panel_nic1_led_cathode = ~bmc_startup_fader[0];
 			panel_nic2_led_cathode = ~bmc_startup_fader[1];
-			panel_uid_led = ~bmc_startup_fader[2];
+			panel_uid_led_req = ~bmc_startup_fader[2];
 		end else if (bmc_boot_phase == 2) begin
 			if (led_override_request != 0) begin
 				if (led_override_request[3]) begin
 					panel_nic1_led_cathode = ~(led_override_request[0] & hostboot_startup_fader_common_high);
 					panel_nic2_led_cathode = ~(led_override_request[1] & hostboot_startup_fader_common_high);
-					panel_uid_led = ~(led_override_request[2] & hostboot_startup_fader_common_high);
+					panel_uid_led_req = ~(led_override_request[2] & hostboot_startup_fader_common_high);
 				end else begin
 					panel_nic1_led_cathode = ~(led_override_request[0] & hostboot_startup_fader_common_low);
 					panel_nic2_led_cathode = ~(led_override_request[1] & hostboot_startup_fader_common_low);
-					panel_uid_led = ~(led_override_request[2] & hostboot_startup_fader_common_low);
+					panel_uid_led_req = ~(led_override_request[2] & hostboot_startup_fader_common_low);
 				end
 			end else begin
 				panel_nic1_led_cathode = panel_nic1_led_cathode_std;
 				panel_nic2_led_cathode = panel_nic2_led_cathode_std;
-				panel_uid_led = panel_uid_led_std;
+				panel_uid_led_req = panel_uid_led_std;
 			end
 		end else begin
 			panel_nic1_led_cathode = 1'b1;
 			panel_nic2_led_cathode = 1'b1;
-			panel_uid_led = panel_uid_led_std;
+			panel_uid_led_req = panel_uid_led_std;
+		end
+
+		// The SuperMicro chassis front panel has some interesting quirks
+		// A bidirectional LED is used to either indicate UID or Fault status
+		// When chassis power is off, driving UID high will actually light the Fault LED
+		// Conversely, when chassis power is on, driving UID high will turn off both LEDs
+		// unless the fan failure signal is asserted on the mainboard.
+		//
+		// Ensure that the Fault LED is not lit when chassis power is off by inverting
+		// the polarity of the front panel UID signal when ATX power good is deasserted.
+		if (atx_pg == 1'b1) begin
+			panel_uid_led = panel_uid_led_req;
+		end else begin
+			panel_uid_led = ~panel_uid_led_req;
 		end
 	end
 
