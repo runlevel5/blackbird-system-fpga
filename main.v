@@ -230,6 +230,7 @@ module system_fpga_top
 	parameter railarray_1 = {RAIL_SIZE{1'b1}}; 	// synchronizing signals
 	reg [RAIL_SIZE - 1:0] pg_s1 = {RAIL_SIZE{1'b0}};
 	reg [RAIL_SIZE - 1:0] pg_s2 = {RAIL_SIZE{1'b0}};
+	reg [RAIL_SIZE - 1:0] wait_err_detail = {RAIL_SIZE{1'b0}};
 	reg sysen_s1 = 1'b0;
 	reg sysen_s2 = 1'b0;
 	reg [RAIL_SIZE - 1:0] delay_done = {RAIL_SIZE{1'b0}};
@@ -239,6 +240,7 @@ module system_fpga_top
 	reg wait_err = 1'b0;
 	reg operation_err = 1'b0;
 	reg err_found = 1'b0;
+	reg err_found_s1 = 1'b0;
 	wire clear_err = 1'b0;
 	wire master_reset_reqest;
 
@@ -253,18 +255,20 @@ module system_fpga_top
 	parameter i2c_addr = 7'b0110001;
 	parameter i2c_clr_err_addr = 8'b00000011;
 	parameter i2c_pg_reg_addr1 = 8'b00000101;
-	parameter i2c_pg_reg_addr2 = i2c_pg_reg_addr1 + 1;
-	parameter i2c_status_reg_addr = i2c_pg_reg_addr2 + 1;
-	parameter i2c_pwr_en_stat_reg_addr1 = i2c_status_reg_addr + 1;
-	parameter i2c_pwr_en_stat_reg_addr2 = i2c_pwr_en_stat_reg_addr1 + 1;
-	parameter i2c_pg_stat_reg_addr1 = i2c_pwr_en_stat_reg_addr2 + 1;
-	parameter i2c_pg_stat_reg_addr2 = i2c_pg_stat_reg_addr1 + 1;
+	parameter i2c_pg_reg_addr2 = 8'b00000110;
+	parameter i2c_status_reg_addr = 8'b00000111;
+	parameter i2c_pwr_en_stat_reg_addr1 = 8'b00001000;
+	parameter i2c_pwr_en_stat_reg_addr2 = 8'b00001001;
+	parameter i2c_pg_stat_reg_addr1 = 8'b00001010;
+	parameter i2c_pg_stat_reg_addr2 = 8'b00001011;
 	parameter i2c_version_reg_addr = 8'b00000000;
 	parameter i2c_vendor_id_reg_addr1 = 8'b00001100;
 	parameter i2c_vendor_id_reg_addr2 = i2c_vendor_id_reg_addr1 + 1;
 	parameter i2c_vendor_id_reg_addr3 = i2c_vendor_id_reg_addr1 + 2;
 	parameter i2c_vendor_id_reg_addr4 = i2c_vendor_id_reg_addr1 + 3;
 	parameter i2c_led_override_reg_addr = 8'b00010000;
+	parameter i2c_seq_fail_stat_reg_addr1 = 8'b00011000;
+	parameter i2c_seq_fail_stat_reg_addr2 = 8'b00011001;
 	reg [15:0] i2c_pg_reg = 1'b0;
 	reg i2c_clr_err = 1'b0;
 	reg [7:0] i2c_write_reg_latch = 0;
@@ -522,6 +526,12 @@ module system_fpga_top
 			i2c_pg_stat_reg_addr2: begin
 				i2c_data_to_master <= pg_buf[RAIL_SIZE-1:8];
 			end
+			i2c_seq_fail_stat_reg_addr1: begin
+				i2c_data_to_master <= wait_err_detail[7:0];
+			end
+			i2c_seq_fail_stat_reg_addr2: begin
+				i2c_data_to_master <= wait_err_detail[RAIL_SIZE-1:8];
+			end
 			i2c_vendor_id_reg_addr1: begin
 				i2c_data_to_master <= vendor_id1;
 			end
@@ -548,8 +558,10 @@ module system_fpga_top
 		pg_s2 <= pg_s1;
 		sysen_s1 <= sysen_buf;
 		sysen_s2 <= sysen_s1;
+		err_found_s1 <= err_found;
 		if ((clear_err == 1'b1)) begin
 			wait_err <= 1'b0;
+			wait_err_detail <= {RAIL_SIZE{1'b0}};
 			operation_err <= 1'b0;
 			err_found <= 1'b0;
 			w_count <= {24{1'b0}};
@@ -795,6 +807,10 @@ module system_fpga_top
 			err_found <= 1'b1;
 		end else begin
 			i2c_pg_reg[14:0] <= pg_s2[14:0];
+		end
+
+		if (err_found && ~err_found_s1) begin
+			wait_err_detail = en_buf ^ pg_buf;
 		end
 	end
 	
