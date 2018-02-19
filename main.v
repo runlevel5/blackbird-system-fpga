@@ -532,6 +532,9 @@ module system_fpga_top
 			i2c_seq_fail_stat_reg_addr2: begin
 				i2c_data_to_master <= wait_err_detail[RAIL_SIZE-1:8];
 			end
+			i2c_led_override_reg_addr: begin
+				i2c_data_to_master <= led_override_request;
+			end
 			i2c_vendor_id_reg_addr1: begin
 				i2c_data_to_master <= vendor_id1;
 			end
