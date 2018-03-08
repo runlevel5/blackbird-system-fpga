@@ -473,6 +473,28 @@ module system_fpga_top
 		end
 	end
 
+	// BMC initial startup watchdog
+	wire bmc_watchdog_clk;
+	reg [12:0] bmc_watchdog_clk_counter;
+	always @(posedge clk_in) begin
+		bmc_watchdog_clk_counter <= bmc_watchdog_clk_counter + 1;
+	end
+	assign bmc_watchdog_clk = bmc_watchdog_clk_counter[12];
+
+	reg [5:0] bmc_watchdog_counter = 0;
+	reg bmc_watchdog_reset = 1'b0;
+	always @(posedge bmc_watchdog_clk) begin
+		if (bmc_rst && (bmc_boot_phase == 0)) begin
+			bmc_watchdog_counter <= bmc_watchdog_clk + 1;
+		end else begin
+			bmc_watchdog_counter <= 0;
+		end
+
+		if (bmc_watchdog_clk > 60) begin
+			bmc_watchdog_reset = 1'b1;
+		end
+	end
+
 	assign i2c_rst = 1'b0;
 	// Handle I2C
 	always @(posedge clk_in) begin
@@ -904,7 +926,7 @@ module system_fpga_top
 
 	// BMC RESETs
 	always @(posedge clk_in) begin
-		bmc_rst = bmc_vr_pg;
+		bmc_rst = bmc_vr_pg & (!bmc_watchdog_reset);
 		usbhub_rst = sysgood_buf & ~bmc_boot_complete_n;
 		fan_rst = bmc_vr_pg;
 	end
