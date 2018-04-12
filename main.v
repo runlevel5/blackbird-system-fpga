@@ -241,8 +241,8 @@ module system_fpga_top
 	reg operation_err = 1'b0;
 	reg err_found = 1'b0;
 	reg err_found_s1 = 1'b0;
-	wire clear_err = 1'b0;
-	wire master_reset_reqest;
+	reg clear_err = 1'b0;
+	reg master_reset_reqest;
 
 	// I2C signals
 	wire i2c_read_req;
