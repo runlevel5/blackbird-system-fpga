@@ -100,6 +100,7 @@ set_io bmc_system_reset_request_n 12
 
 # Component disable lines
 set_io pmc_disable_n 21
+set_io ast_vga_disable_n 16
 
 # System status lines
 set_io nic1_act_led_n 93

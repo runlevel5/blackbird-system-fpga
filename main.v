@@ -80,6 +80,7 @@ module system_fpga_top
 
 		// Component disable lines
 		output reg pmc_disable_n,
+		input wire ast_vga_disable_n,
 
 		// System status lines
 		inout nic1_act_led_n,
@@ -211,8 +212,7 @@ module system_fpga_top
 		.D_IN_0(i2c_sda_in)
 	);
 
-	// TODO update version
-	parameter fpga_version = 8'b00000110;
+	parameter fpga_version = 8'b00000111;
 	parameter vendor_id1 = 8'h52;
 	parameter vendor_id2 = 8'h43;
 	parameter vendor_id3 = 8'h53;
@@ -319,8 +319,6 @@ module system_fpga_top
 		lpc_clock_divider = lpc_clock_divider + 1;
 	end
 	assign clk_in_lpc = lpc_clock_divider[2];
-
-	reg clock_select = 1'b1;
 
 	assign clk_in = (clock_select)?clk_in_ring:clk_in_lpc;
 
@@ -534,7 +532,7 @@ module system_fpga_top
 				i2c_data_to_master <= i2c_pg_reg[7:0];
 			end
 			i2c_status_reg_addr: begin
-				i2c_data_to_master <= {2'b00, ~cpub_present_n, wait_err, operation_err, err_found, sysen_buf, sysgood_buf};
+				i2c_data_to_master <= {1'b0, ~ast_vga_disable_n, ~cpub_present_n, wait_err, operation_err, err_found, sysen_buf, sysgood_buf};
 			end
 			i2c_pwr_en_stat_reg_addr1: begin
 				i2c_data_to_master <= en_buf[7:0];
