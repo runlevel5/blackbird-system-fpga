@@ -212,20 +212,22 @@ module system_fpga_top
 		.D_IN_0(i2c_sda_in)
 	);
 
-	parameter fpga_version = 8'b00000111;
+	parameter fpga_version = 8'h08;
 	parameter vendor_id1 = 8'h52;
 	parameter vendor_id2 = 8'h43;
 	parameter vendor_id3 = 8'h53;
 	parameter vendor_id4 = 8'h20;
 	parameter RAIL_SIZE = 15;
-	reg [RAIL_SIZE - 1:0] en_buf = {RAIL_SIZE{1'b0}};
-	reg [RAIL_SIZE - 1:0] pg_buf;
-	reg sysgood_buf;
+	reg [RAIL_SIZE - 1:0] en_buf = 0;
+	reg [RAIL_SIZE - 1:0] pg_buf = 0;
+	reg sysgood_buf = 1'b0;
 	wire clk_in;
 	wire clk_in_lpc;
 	wire clk_in_ring;
-	wire stdby_sed;
-	reg sysen_buf;
+	wire stdby_sed = 1'b0;
+	reg sysen_buf = 1'b0;
+	reg atx_pg_filtered = 1'b0;
+	reg atx_en_lockout = 1'b0;
 	parameter railarray_0 = {RAIL_SIZE{1'b0}};
 	parameter railarray_1 = {RAIL_SIZE{1'b1}}; 	// synchronizing signals
 	reg [RAIL_SIZE - 1:0] pg_s1 = {RAIL_SIZE{1'b0}};
@@ -242,7 +244,7 @@ module system_fpga_top
 	reg err_found = 1'b0;
 	reg err_found_s1 = 1'b0;
 	reg clear_err = 1'b0;
-	reg master_reset_reqest;
+	reg master_reset_reqest = 1'b0;
 
 	// I2C signals
 	wire i2c_read_req;
@@ -269,8 +271,9 @@ module system_fpga_top
 	parameter i2c_led_override_reg_addr = 8'b00010000;
 	parameter i2c_seq_fail_stat_reg_addr1 = 8'b00011000;
 	parameter i2c_seq_fail_stat_reg_addr2 = 8'b00011001;
-	reg [15:0] i2c_pg_reg = 1'b0;
+	reg [15:0] i2c_pg_reg = 0;
 	reg i2c_clr_err = 1'b0;
+	reg host_clr_err = 1'b0;
 	reg [7:0] i2c_write_reg_latch = 0;
 
 	// Front panel control signals
@@ -307,18 +310,32 @@ module system_fpga_top
 	);
 
 	// Divide unstable 10MHz ring clock down to ~2MHz
-	reg [2:0] ring_clock_divider;
+	reg [2:0] ring_clock_divider = 0;
 	always @(posedge chain_out) begin
 		ring_clock_divider = ring_clock_divider + 1;
 	end
 	assign clk_in_ring = ring_clock_divider[2];
 
 	// Divide input 33MHz clock down to 4.125MHz
-	reg [2:0] lpc_clock_divider;
+	reg [2:0] lpc_clock_divider = 0;
 	always @(posedge lpc_clock) begin
 		lpc_clock_divider = lpc_clock_divider + 1;
 	end
 	assign clk_in_lpc = lpc_clock_divider[2];
+
+	// Divide 4.125MHz clock down to 500Hz, 125Hz, and 7Hz, respectively
+	wire timer_clk_2;
+	wire timer_clk_3;
+	wire timer_clk_4;
+	reg [16:0] timer_clk_counter = 0;
+	always @(posedge clk_in) begin
+		timer_clk_counter <= timer_clk_counter + 1;
+	end
+	assign timer_clk_2 = timer_clk_counter[12];
+	assign timer_clk_3 = timer_clk_counter[14];
+	assign timer_clk_4 = timer_clk_counter[16];
+
+	reg clock_select = 1'b1;
 
 	assign clk_in = (clock_select)?clk_in_ring:clk_in_lpc;
 
@@ -345,15 +362,8 @@ module system_fpga_top
 	);
 
 	// Generate BMC startup "Knight Rider" display for front panel
-	wire slow_clk;
-	reg [16:0] slow_clk_counter;
-	always @(posedge clk_in) begin
-		slow_clk_counter <= slow_clk_counter + 1;
-	end
-	assign slow_clk = slow_clk_counter[16];
-
 	reg [1:0] bmc_startup_kr_state = 0;
-	always @(posedge slow_clk) begin
+	always @(posedge timer_clk_4) begin
 		case (bmc_startup_kr_state)
 			0: begin
 				bmc_startup_kr <= 3'b100;
@@ -378,16 +388,9 @@ module system_fpga_top
 	end
 
 	// Generate fading lamp test for front panel
-	wire fader_clk;
-	reg [12:0] fader_clk_counter;
-	always @(posedge clk_in) begin
-		fader_clk_counter <= fader_clk_counter + 1;
-	end
-	assign fader_clk = fader_clk_counter[12];
-
 	reg [5:0] fader_pwm_level = 0;
 	reg [6:0] fader_pwm_internal_counter = 0;
-	always @(posedge fader_clk) begin
+	always @(posedge timer_clk_2) begin
 		fader_pwm_internal_counter = fader_pwm_internal_counter + 1;
 		if (fader_pwm_internal_counter >= 64) begin
 			fader_pwm_level = 63 - (fader_pwm_internal_counter - 64);
@@ -472,24 +475,19 @@ module system_fpga_top
 	end
 
 	// BMC initial startup watchdog
-	wire bmc_watchdog_clk;
-	reg [12:0] bmc_watchdog_clk_counter;
-	always @(posedge clk_in) begin
-		bmc_watchdog_clk_counter <= bmc_watchdog_clk_counter + 1;
-	end
-	assign bmc_watchdog_clk = bmc_watchdog_clk_counter[12];
-
-	reg [5:0] bmc_watchdog_counter = 0;
+	reg [9:0] bmc_watchdog_counter = 0;
 	reg bmc_watchdog_reset = 1'b0;
-	always @(posedge bmc_watchdog_clk) begin
+	always @(posedge timer_clk_4) begin
 		if (bmc_rst && (bmc_boot_phase == 0)) begin
-			bmc_watchdog_counter <= bmc_watchdog_clk + 1;
+			bmc_watchdog_counter <= bmc_watchdog_counter + 1;
 		end else begin
 			bmc_watchdog_counter <= 0;
 		end
 
-		if (bmc_watchdog_clk > 60) begin
+		if (bmc_watchdog_counter[9]) begin
 			bmc_watchdog_reset = 1'b1;
+		end else begin
+			bmc_watchdog_reset = 1'b0;
 		end
 	end
 
@@ -522,15 +520,14 @@ module system_fpga_top
 			i2c_reg_cur <= i2c_reg_cur + 1;
 		end
 		case (i2c_reg_cur)
-			i2c_clr_err_addr: begin
-				i2c_data_to_master <= 8'b11111111;
-			end
-			i2c_pg_reg_addr1: begin
-				i2c_data_to_master <= i2c_pg_reg[15:8];
-			end
-			i2c_pg_reg_addr2: begin
-				i2c_data_to_master <= i2c_pg_reg[7:0];
-			end
+			// FIXME
+			// Temporarily disabled to save die area
+			// i2c_pg_reg_addr1: begin
+			// 	i2c_data_to_master <= i2c_pg_reg[15:8];
+			// end
+			// i2c_pg_reg_addr2: begin
+			// 	i2c_data_to_master <= i2c_pg_reg[7:0];
+			// end
 			i2c_status_reg_addr: begin
 				i2c_data_to_master <= {1'b0, ~ast_vga_disable_n, ~cpub_present_n, wait_err, operation_err, err_found, sysen_buf, sysgood_buf};
 			end
@@ -582,6 +579,11 @@ module system_fpga_top
 		sysen_s1 <= sysen_buf;
 		sysen_s2 <= sysen_s1;
 		err_found_s1 <= err_found;
+		if ((sysen_s1 == 1'b1 ) && (sysen_buf == 1'b0)) begin
+			host_clr_err <= 1'b1;
+		end else begin
+			host_clr_err <= 1'b0;
+		end
 		if ((clear_err == 1'b1)) begin
 			wait_err <= 1'b0;
 			wait_err_detail <= {RAIL_SIZE{1'b0}};
@@ -860,7 +862,7 @@ module system_fpga_top
 
 	// Assign Ports to PGood buffer
 	always @(posedge clk_in) begin
-		pg_buf[0] = atx_pg;
+		pg_buf[0] = atx_pg_filtered;
 		pg_buf[1] = miscio_pg;
 		pg_buf[2] = vdna_pg;
 		pg_buf[3] = vdnb_pg | (cpub_present_n & en_buf[3]);
@@ -882,7 +884,7 @@ module system_fpga_top
 	// Otherwise, if system enable is up, then enable short delay is done after previous rail
 	// Otherwise, disable after next rail goes down
 	always @(posedge clk_in) begin
-		en_buf[0] = (sysen_s2 | pg_s2[1]) & ~err_found;
+		en_buf[0] = (sysen_s2 | pg_s2[1]) & ~err_found & ~atx_en_lockout;
 		en_buf[1] = ((sysen_s2 & delay_done[0]) | pg_s2[2]) & ~err_found;
 		en_buf[2] = ((sysen_s2 & delay_done[1]) | pg_s2[3]) & ~err_found;
 		en_buf[3] = ((sysen_s2 & delay_done[2]) | pg_s2[4]) & ~err_found;
@@ -899,9 +901,30 @@ module system_fpga_top
 		en_buf[14] = (sysen_s2 & delay_done[13]) & ~err_found;
 	end
 
+	// PSU startup sequencing logic
+	reg [3:0] atx_pg_counter = 0;
+	reg atx_pg_prev = 0;
+	always @(posedge timer_clk_3) begin
+		if (sysen_s2 | pg_s2[1]) begin
+			if (atx_pg) begin
+				atx_pg_counter <= atx_pg_counter + 1;
+				if (atx_pg_counter > 14) begin
+					atx_pg_filtered <= 1'b1;
+				end
+			end else begin
+				atx_pg_filtered <= 1'b0;
+				atx_pg_counter <= 0;
+			end
+		end else begin
+			atx_pg_counter = 0;
+		end
+
+		atx_pg_prev <= atx_pg;
+	end
+
 	// ERR state reset
 	always @(posedge clk_in) begin
-		clear_err = i2c_clr_err;
+		clear_err = i2c_clr_err | host_clr_err;
 	end
 
 	// CPUB clk enables

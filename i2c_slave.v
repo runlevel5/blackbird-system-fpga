@@ -29,14 +29,14 @@ module i2c_slave(
 
 	//----------------------------------------------------------
 	parameter [2:0]
-	i2c_idle = 0,
-	i2c_get_address_and_cmd = 1,
-	i2c_answer_ack_start = 2,
-	i2c_write = 3,
-	i2c_read = 4,
-	i2c_read_ack_start = 5,
-	i2c_read_ack_got_rising = 6,
-	i2c_read_stop = 7;
+		i2c_idle = 0,
+		i2c_get_address_and_cmd = 1,
+		i2c_answer_ack_start = 2,
+		i2c_write = 3,
+		i2c_read = 4,
+		i2c_read_ack_start = 5,
+		i2c_read_ack_got_rising = 6,
+		i2c_read_stop = 7;
 	// I2C state management
 	reg [2:0] state_reg = i2c_idle;
 	reg cmd_reg = 1'b0;
@@ -46,8 +46,8 @@ module i2c_slave(
 	reg stop_reg = 1'b0;
 	reg scl_rising_reg = 1'b0;
 	reg scl_falling_reg = 1'b0; 	// Address and data received from master
-	reg [6:0] addr_reg = 1'b0;
-	reg [7:0] data_reg = 1'b0; 	// Delayed SCL (by 1 clock cycle, and by 2 clock cycles)
+	reg [6:0] addr_reg = 0;
+	reg [7:0] data_reg = 0; 	// Delayed SCL (by 1 clock cycle, and by 2 clock cycles)
 	reg [7:0] wr_cyc_count_reg = 8'b00000000;
 	reg scl_reg = 1'b1;
 	reg scl_prev_reg = 1'b1; 	// Slave writes on scl
@@ -59,7 +59,7 @@ module i2c_slave(
 	reg sda_o_reg = 1'b0; 		// User interface
 	reg data_valid_reg = 1'b0;
 	reg read_req_reg = 1'b0;
-	reg [7:0] data_to_master_reg = 1'b0;
+	reg [7:0] data_to_master_reg = 0;
 	
 	always @(posedge clk) begin
 		// Delay SCL by 1 and 2 clock cycles
