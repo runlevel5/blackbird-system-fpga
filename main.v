@@ -475,7 +475,7 @@ module system_fpga_top
 	end
 
 	// BMC initial startup watchdog
-	reg [9:0] bmc_watchdog_counter = 0;
+	reg [8:0] bmc_watchdog_counter = 0;
 	reg bmc_watchdog_reset = 1'b0;
 	always @(posedge timer_clk_4) begin
 		if (bmc_rst && (bmc_boot_phase == 0)) begin
@@ -484,7 +484,7 @@ module system_fpga_top
 			bmc_watchdog_counter <= 0;
 		end
 
-		if (bmc_watchdog_counter[9]) begin
+		if (bmc_watchdog_counter[8]) begin
 			bmc_watchdog_reset = 1'b1;
 		end else begin
 			bmc_watchdog_reset = 1'b0;
@@ -947,7 +947,7 @@ module system_fpga_top
 
 	// BMC RESETs
 	always @(posedge clk_in) begin
-		bmc_rst = bmc_vr_pg & (!bmc_watchdog_reset);
+		bmc_rst = bmc_vr_pg & ~bmc_watchdog_reset;
 		usbhub_rst = sysgood_buf & ~bmc_boot_complete_n;
 		fan_rst = bmc_vr_pg;
 	end
