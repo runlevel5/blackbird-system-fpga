@@ -236,7 +236,7 @@ module system_fpga_top
 	reg sysen_s1 = 1'b0;
 	reg sysen_s2 = 1'b0;
 	reg [RAIL_SIZE - 1:0] delay_done = {RAIL_SIZE{1'b0}};
-	reg [23:0] w_count = 0;
+	reg [26:0] w_count = 0;
 	reg [16:0] d_count = 0; 	// at 4.16MHz, w_count(23) being one means approximately 100ms have passed, good for checking watchdog between EN and PG
 					// d_count(16) being one means approximately 15ms have passed, good enough for delay betwen one rail and the next
 	reg wait_err = 1'b0;
@@ -589,16 +589,16 @@ module system_fpga_top
 			wait_err_detail <= {RAIL_SIZE{1'b0}};
 			operation_err <= 1'b0;
 			err_found <= 1'b0;
-			w_count <= {24{1'b0}};
+			w_count <= {27{1'b0}};
 			d_count <= {17{1'b0}};
 		end
 		else if ((sysen_s2 == 1'b0 || err_found == 1'b1)) begin
-			w_count <= {24{1'b0}};
+			w_count <= {27{1'b0}};
 			d_count <= {17{1'b0}};
 			delay_done <= 0;
 		end
 		else if ((pg_s2[0] == 1'b1 && en_buf[0] == 1'b1 && delay_done[0] == 1'b0)) begin
-			w_count <= {24{1'b0}};
+			w_count <= {27{1'b0}};
 			d_count <= d_count + 1;
 			if ((d_count[16] == 1'b1)) begin
 				d_count <= {17{1'b0}};
@@ -606,7 +606,7 @@ module system_fpga_top
 			end
 		end
 		else if ((pg_s2[1] == 1'b1 && en_buf[1] == 1'b1 && delay_done[1] == 1'b0)) begin
-			w_count <= {24{1'b0}};
+			w_count <= {27{1'b0}};
 			d_count <= d_count + 1;
 			if ((d_count[16] == 1'b1)) begin
 				d_count <= {17{1'b0}};
@@ -614,7 +614,7 @@ module system_fpga_top
 			end
 		end
 		else if ((pg_s2[2] == 1'b1 && en_buf[2] == 1'b1 && delay_done[2] == 1'b0)) begin
-			w_count <= {24{1'b0}};
+			w_count <= {27{1'b0}};
 			d_count <= d_count + 1;
 			if ((d_count[16] == 1'b1)) begin
 				d_count <= {17{1'b0}};
@@ -622,7 +622,7 @@ module system_fpga_top
 			end
 		end
 		else if ((pg_s2[3] == 1'b1 && en_buf[3] == 1'b1 && delay_done[3] == 1'b0)) begin
-			w_count <= {24{1'b0}};
+			w_count <= {27{1'b0}};
 			d_count <= d_count + 1;
 			if ((d_count[16] == 1'b1)) begin
 				d_count <= {17{1'b0}};
@@ -630,7 +630,7 @@ module system_fpga_top
 			end
 		end
 		else if ((pg_s2[4] == 1'b1 && en_buf[4] == 1'b1 && delay_done[4] == 1'b0)) begin
-			w_count <= {24{1'b0}};
+			w_count <= {27{1'b0}};
 			d_count <= d_count + 1;
 			if ((d_count[16] == 1'b1)) begin
 				d_count <= {17{1'b0}};
@@ -638,7 +638,7 @@ module system_fpga_top
 			end
 		end
 		else if ((pg_s2[5] == 1'b1 && en_buf[5] == 1'b1 && delay_done[5] == 1'b0)) begin
-			w_count <= {24{1'b0}};
+			w_count <= {27{1'b0}};
 			d_count <= d_count + 1;
 			if ((d_count[16] == 1'b1)) begin
 				d_count <= {17{1'b0}};
@@ -646,7 +646,7 @@ module system_fpga_top
 			end
 		end
 		else if ((pg_s2[6] == 1'b1 && en_buf[6] == 1'b1 && delay_done[6] == 1'b0)) begin
-			w_count <= {24{1'b0}};
+			w_count <= {27{1'b0}};
 			d_count <= d_count + 1;
 			if ((d_count[16] == 1'b1)) begin
 				d_count <= {17{1'b0}};
@@ -654,7 +654,7 @@ module system_fpga_top
 			end
 		end
 		else if ((pg_s2[7] == 1'b1 && en_buf[7] == 1'b1 && delay_done[7] == 1'b0)) begin
-			w_count <= {24{1'b0}};
+			w_count <= {27{1'b0}};
 			d_count <= d_count + 1;
 			if ((d_count[16] == 1'b1)) begin
 				d_count <= {17{1'b0}};
@@ -662,7 +662,7 @@ module system_fpga_top
 			end
 		end
 		else if ((pg_s2[8] == 1'b1 && en_buf[8] == 1'b1 && delay_done[8] == 1'b0)) begin
-			w_count <= {24{1'b0}};
+			w_count <= {27{1'b0}};
 			d_count <= d_count + 1;
 			if ((d_count[16] == 1'b1)) begin
 				d_count <= {17{1'b0}};
@@ -670,7 +670,7 @@ module system_fpga_top
 			end
 		end
 		else if ((pg_s2[9] == 1'b1 && en_buf[9] == 1'b1 && delay_done[9] == 1'b0)) begin
-			w_count <= {24{1'b0}};
+			w_count <= {27{1'b0}};
 			d_count <= d_count + 1;
 			if ((d_count[16] == 1'b1)) begin
 				d_count <= {17{1'b0}};
@@ -678,7 +678,7 @@ module system_fpga_top
 			end
 		end
 		else if ((pg_s2[10] == 1'b1 && en_buf[10] == 1'b1 && delay_done[10] == 1'b0)) begin
-			w_count <= {24{1'b0}};
+			w_count <= {27{1'b0}};
 			d_count <= d_count + 1;
 			if ((d_count[16] == 1'b1)) begin
 				d_count <= {17{1'b0}};
@@ -686,7 +686,7 @@ module system_fpga_top
 			end
 		end
 		else if ((pg_s2[11] == 1'b1 && en_buf[11] == 1'b1 && delay_done[11] == 1'b0)) begin
-			w_count <= {24{1'b0}};
+			w_count <= {27{1'b0}};
 			d_count <= d_count + 1;
 			if ((d_count[16] == 1'b1)) begin
 				d_count <= {17{1'b0}};
@@ -694,7 +694,7 @@ module system_fpga_top
 			end
 		end
 		else if ((pg_s2[12] == 1'b1 && en_buf[12] == 1'b1 && delay_done[12] == 1'b0)) begin
-			w_count <= {24{1'b0}};
+			w_count <= {27{1'b0}};
 			d_count <= d_count + 1;
 			if ((d_count[16] == 1'b1)) begin
 				d_count <= {17{1'b0}};
@@ -702,7 +702,7 @@ module system_fpga_top
 			end
 		end
 		else if ((pg_s2[13] == 1'b1 && en_buf[13] == 1'b1 && delay_done[13] == 1'b0)) begin
-			w_count <= {24{1'b0}};
+			w_count <= {27{1'b0}};
 			d_count <= d_count + 1;
 			if ((d_count[16] == 1'b1)) begin
 				d_count <= {17{1'b0}};
@@ -710,7 +710,7 @@ module system_fpga_top
 			end
 		end
 		else if ((pg_s2[14] == 1'b1 && en_buf[14] == 1'b1 && delay_done[14] == 1'b0)) begin
-			w_count <= {24{1'b0}};
+			w_count <= {27{1'b0}};
 			d_count <= d_count + 1;
 			if ((d_count[16] == 1'b1)) begin
 				d_count <= {17{1'b0}};
@@ -720,108 +720,110 @@ module system_fpga_top
 
 		// Error Checks
 		// Check time between Enables going high and PGOODs arriving. Error out after 100ms
+		// ATX power good is special.  According to the ATX specification, ATX power good can
+		// take up to 500ms to assert.  Wait for 800ms to be safe.
 		else if ((pg_s2[0] == 1'b0 && en_buf[0] == 1'b1)) begin
 			w_count <= w_count + 1;
-			if ((w_count[23] == 1'b1)) begin
-				w_count <= {24{1'b0}};
+			if ((w_count[26] == 1'b1)) begin
+				w_count <= {27{1'b0}};
 				wait_err <= 1'b1;
 			end
 		end
 		else if ((pg_s2[1] == 1'b0 && en_buf[1] == 1'b1)) begin
 			w_count <= w_count + 1;
 			if ((w_count[23] == 1'b1)) begin
-				w_count <= {24{1'b0}};
+				w_count <= {27{1'b0}};
 				wait_err <= 1'b1;
 			end
 		end
 		else if ((pg_s2[2] == 1'b0 && en_buf[2] == 1'b1)) begin
 			w_count <= w_count + 1;
 			if ((w_count[23] == 1'b1)) begin
-				w_count <= {24{1'b0}};
+				w_count <= {27{1'b0}};
 				wait_err <= 1'b1;
 			end
 		end
 		else if ((pg_s2[3] == 1'b0 && en_buf[3] == 1'b1)) begin
 			w_count <= w_count + 1;
 			if ((w_count[23] == 1'b1)) begin
-				w_count <= {24{1'b0}};
+				w_count <= {27{1'b0}};
 				wait_err <= 1'b1;
 			end
 		end
 		else if ((pg_s2[4] == 1'b0 && en_buf[4] == 1'b1)) begin
 			w_count <= w_count + 1;
 			if ((w_count[23] == 1'b1)) begin
-				w_count <= {24{1'b0}};
+				w_count <= {27{1'b0}};
 				wait_err <= 1'b1;
 			end
 		end
 		else if ((pg_s2[5] == 1'b0 && en_buf[5] == 1'b1)) begin
 			w_count <= w_count + 1;
 			if ((w_count[23] == 1'b1)) begin
-				w_count <= {24{1'b0}};
+				w_count <= {27{1'b0}};
 				wait_err <= 1'b1;
 			end
 		end
 		else if ((pg_s2[6] == 1'b0 && en_buf[6] == 1'b1)) begin
 			w_count <= w_count + 1;
 			if ((w_count[23] == 1'b1)) begin
-				w_count <= {24{1'b0}};
+				w_count <= {27{1'b0}};
 				wait_err <= 1'b1;
 			end
 		end
 		else if ((pg_s2[7] == 1'b0 && en_buf[7] == 1'b1)) begin
 			w_count <= w_count + 1;
 			if ((w_count[23] == 1'b1)) begin
-				w_count <= {24{1'b0}};
+				w_count <= {27{1'b0}};
 				wait_err <= 1'b1;
 			end
 		end
 		else if ((pg_s2[8] == 1'b0 && en_buf[8] == 1'b1)) begin
 			w_count <= w_count + 1;
 			if ((w_count[23] == 1'b1)) begin
-				w_count <= {24{1'b0}};
+				w_count <= {27{1'b0}};
 				wait_err <= 1'b1;
 			end
 		end
 		else if ((pg_s2[9] == 1'b0 && en_buf[9] == 1'b1)) begin
 			w_count <= w_count + 1;
 			if ((w_count[23] == 1'b1)) begin
-				w_count <= {24{1'b0}};
+				w_count <= {27{1'b0}};
 				wait_err <= 1'b1;
 			end
 		end
 		else if ((pg_s2[10] == 1'b0 && en_buf[10] == 1'b1)) begin
 			w_count <= w_count + 1;
 			if ((w_count[23] == 1'b1)) begin
-				w_count <= {24{1'b0}};
+				w_count <= {27{1'b0}};
 				wait_err <= 1'b1;
 			end
 		end
 		else if ((pg_s2[11] == 1'b0 && en_buf[11] == 1'b1)) begin
 			w_count <= w_count + 1;
 			if ((w_count[23] == 1'b1)) begin
-				w_count <= {24{1'b0}};
+				w_count <= {27{1'b0}};
 				wait_err <= 1'b1;
 			end
 		end
 		else if ((pg_s2[12] == 1'b0 && en_buf[12] == 1'b1)) begin
 			w_count <= w_count + 1;
 			if ((w_count[23] == 1'b1)) begin
-				w_count <= {24{1'b0}};
+				w_count <= {27{1'b0}};
 				wait_err <= 1'b1;
 			end
 		end
 		else if ((pg_s2[13] == 1'b0 && en_buf[13] == 1'b1)) begin
 			w_count <= w_count + 1;
 			if ((w_count[23] == 1'b1)) begin
-				w_count <= {24{1'b0}};
+				w_count <= {27{1'b0}};
 				wait_err <= 1'b1;
 			end
 		end
 		else if ((pg_s2[14] == 1'b0 && en_buf[14] == 1'b1)) begin
 			w_count <= w_count + 1;
 			if ((w_count[23] == 1'b1)) begin
-				w_count <= {24{1'b0}};
+				w_count <= {27{1'b0}};
 				wait_err <= 1'b1;
 			end
 		end
