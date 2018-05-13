@@ -227,7 +227,6 @@ module system_fpga_top
 	wire stdby_sed = 1'b0;
 	reg sysen_buf = 1'b0;
 	reg atx_force_enable = 1'b0;
-	reg atx_pg_filtered = 1'b0;
 	reg atx_en_lockout = 1'b0;
 	parameter railarray_0 = {RAIL_SIZE{1'b0}};
 	parameter railarray_1 = {RAIL_SIZE{1'b1}}; 	// synchronizing signals
@@ -872,7 +871,7 @@ module system_fpga_top
 
 	// Assign Ports to PGood buffer
 	always @(posedge clk_in) begin
-		pg_buf[0] = atx_pg_filtered;
+		pg_buf[0] = atx_pg;
 		pg_buf[1] = miscio_pg;
 		pg_buf[2] = vdna_pg;
 		pg_buf[3] = vdnb_pg | (cpub_present_n & en_buf[3]);
@@ -909,27 +908,6 @@ module system_fpga_top
 		en_buf[12] = ((sysen_s2 & delay_done[11]) | pg_s2[13]) & ~err_found;
 		en_buf[13] = ((sysen_s2 & delay_done[12]) | pg_s2[14]) & ~err_found;
 		en_buf[14] = (sysen_s2 & delay_done[13]) & ~err_found;
-	end
-
-	// PSU startup sequencing logic
-	reg [1:0] atx_pg_counter = 0;
-	reg atx_pg_prev = 0;
-	always @(posedge timer_clk_4) begin
-		if (sysen_s2 | pg_s2[1]) begin
-			if (atx_pg) begin
-				atx_pg_counter <= atx_pg_counter + 1;
-				if (atx_pg_counter > 2) begin
-					atx_pg_filtered <= 1'b1;
-				end
-			end else begin
-				atx_pg_filtered <= 1'b0;
-				atx_pg_counter <= 0;
-			end
-		end else begin
-			atx_pg_counter = 0;
-		end
-
-		atx_pg_prev <= atx_pg;
 	end
 
 	// ERR state reset
