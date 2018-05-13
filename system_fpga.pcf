@@ -32,7 +32,6 @@ set_io lpc_clock 13
 # General I/O
 set_io sysen 15
 set_io sysgood 53
-set_io debug_in 25
 
 # BMC status
 set_io bmc_boot_phase_in 100
@@ -101,6 +100,9 @@ set_io bmc_system_reset_request_n 12
 # Component disable lines
 set_io pmc_disable_n 21
 set_io ast_vga_disable_n 16
+
+# Mode set lines
+set_io mode_set_n 25
 
 # System status lines
 set_io nic1_act_led_n 93

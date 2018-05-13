@@ -12,7 +12,6 @@ module system_fpga_top
 		// General I/O
 		input wire sysen,
 		output reg sysgood,
-		input wire debug_in,
 
 		// BMC status
 		input wire bmc_boot_phase_in,
@@ -81,6 +80,7 @@ module system_fpga_top
 		// Component disable lines
 		output reg pmc_disable_n,
 		input wire ast_vga_disable_n,
+		input wire mode_set_n,
 
 		// System status lines
 		inout nic1_act_led_n,
@@ -212,7 +212,7 @@ module system_fpga_top
 		.D_IN_0(i2c_sda_in)
 	);
 
-	parameter fpga_version = 8'h08;
+	parameter fpga_version = 8'h09;
 	parameter vendor_id1 = 8'h52;
 	parameter vendor_id2 = 8'h43;
 	parameter vendor_id3 = 8'h53;
@@ -226,6 +226,7 @@ module system_fpga_top
 	wire clk_in_ring;
 	wire stdby_sed = 1'b0;
 	reg sysen_buf = 1'b0;
+	reg atx_force_enable = 1'b0;
 	reg atx_pg_filtered = 1'b0;
 	reg atx_en_lockout = 1'b0;
 	parameter railarray_0 = {RAIL_SIZE{1'b0}};
@@ -271,6 +272,7 @@ module system_fpga_top
 	parameter i2c_led_override_reg_addr = 8'b00010000;
 	parameter i2c_seq_fail_stat_reg_addr1 = 8'b00011000;
 	parameter i2c_seq_fail_stat_reg_addr2 = 8'b00011001;
+	parameter i2c_system_override_reg_addr = 8'b00110011;
 	reg [15:0] i2c_pg_reg = 0;
 	reg i2c_clr_err = 1'b0;
 	reg host_clr_err = 1'b0;
@@ -513,6 +515,9 @@ module system_fpga_top
 					i2c_led_override_reg_addr: begin
 						led_override_request <= i2c_data_from_master;
 					end
+					i2c_system_override_reg_addr: begin
+						atx_force_enable <= i2c_data_from_master[0];
+					end
 				endcase
 			end
 		end
@@ -529,25 +534,25 @@ module system_fpga_top
 			// 	i2c_data_to_master <= i2c_pg_reg[7:0];
 			// end
 			i2c_status_reg_addr: begin
-				i2c_data_to_master <= {1'b0, ~ast_vga_disable_n, ~cpub_present_n, wait_err, operation_err, err_found, sysen_buf, sysgood_buf};
+				i2c_data_to_master <= {~mode_set_n, ~ast_vga_disable_n, ~cpub_present_n, wait_err, operation_err, err_found, sysen_buf, sysgood_buf};
 			end
 			i2c_pwr_en_stat_reg_addr1: begin
 				i2c_data_to_master <= en_buf[7:0];
 			end
 			i2c_pwr_en_stat_reg_addr2: begin
-				i2c_data_to_master <= en_buf[RAIL_SIZE-1:8];
+				i2c_data_to_master <= {1'b0, en_buf[RAIL_SIZE-1:8]};
 			end
 			i2c_pg_stat_reg_addr1: begin
 				i2c_data_to_master <= pg_buf[7:0];
 			end
 			i2c_pg_stat_reg_addr2: begin
-				i2c_data_to_master <= pg_buf[RAIL_SIZE-1:8];
+				i2c_data_to_master <= {1'b0, pg_buf[RAIL_SIZE-1:8]};
 			end
 			i2c_seq_fail_stat_reg_addr1: begin
 				i2c_data_to_master <= wait_err_detail[7:0];
 			end
 			i2c_seq_fail_stat_reg_addr2: begin
-				i2c_data_to_master <= wait_err_detail[RAIL_SIZE-1:8];
+				i2c_data_to_master <= {1'b0, wait_err_detail[RAIL_SIZE-1:8]};
 			end
 			i2c_led_override_reg_addr: begin
 				i2c_data_to_master <= led_override_request;
@@ -566,6 +571,9 @@ module system_fpga_top
 			end
 			i2c_version_reg_addr: begin
 				i2c_data_to_master <= fpga_version;
+			end
+			i2c_system_override_reg_addr: begin
+				i2c_data_to_master <= {7'b0000000, atx_force_enable};
 			end
 			default: begin
 				i2c_data_to_master <= 8'b00000000;
@@ -904,13 +912,13 @@ module system_fpga_top
 	end
 
 	// PSU startup sequencing logic
-	reg [3:0] atx_pg_counter = 0;
+	reg [1:0] atx_pg_counter = 0;
 	reg atx_pg_prev = 0;
-	always @(posedge timer_clk_3) begin
+	always @(posedge timer_clk_4) begin
 		if (sysen_s2 | pg_s2[1]) begin
 			if (atx_pg) begin
 				atx_pg_counter <= atx_pg_counter + 1;
-				if (atx_pg_counter > 14) begin
+				if (atx_pg_counter > 2) begin
 					atx_pg_filtered <= 1'b1;
 				end
 			end else begin
@@ -954,10 +962,9 @@ module system_fpga_top
 		fan_rst = bmc_vr_pg;
 	end
 
-	// debug_in override allows non-BMC control of FPGA
+	// atx_force_enable override allows non-BMC control of FPGA
 	always @(posedge clk_in) begin
-		sysen_buf = sysen | ~debug_in;
-		// sysen_buf = ~debug_in;
+		sysen_buf = sysen | atx_force_enable;
 	end
 
 	// Enable V5_0_DUAL rail
