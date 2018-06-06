@@ -78,7 +78,7 @@ set_io i2c_scl 86
 set_io i2c_sda 85
 
 # CPU B Presence Detect
-set_io cpub_present_n 4
+set_io cpub_present_l 4
 set_io cpub_clk_oea 10
 set_io cpub_clk_oeb 9
 

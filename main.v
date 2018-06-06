@@ -58,7 +58,7 @@ module system_fpga_top
 		inout i2c_sda,
 
 		// Second CPU presence detect
-		input wire cpub_present_n,
+		input wire cpub_present_l,
 		output wire cpub_clk_oea,
 		output wire cpub_clk_oeb,
 
@@ -124,6 +124,16 @@ module system_fpga_top
 	) flexver_reset_in_l_io (
 		.PACKAGE_PIN(flexver_reset_in_l),
 		.D_IN_0(flexver_reset_req_l)
+	);
+
+	// The CPU presence detect line requires a pullup to 3.3V
+	wire cpub_present_n;
+	SB_IO #(
+		.PIN_TYPE(6'b000001),
+		.PULLUP(1'b1)
+	) cpub_present_l_io (
+		.PACKAGE_PIN(cpub_present_l),
+		.D_IN_0(cpub_present_n)
 	);
 
 	// Make NIC activity lights work
@@ -212,7 +222,7 @@ module system_fpga_top
 		.D_IN_0(i2c_sda_in)
 	);
 
-	parameter fpga_version = 8'h09;
+	parameter fpga_version = 8'h0a;
 	parameter vendor_id1 = 8'h52;
 	parameter vendor_id2 = 8'h43;
 	parameter vendor_id3 = 8'h53;
