@@ -237,6 +237,7 @@ module system_fpga_top
 	wire stdby_sed = 1'b0;
 	reg sysen_buf = 1'b0;
 	reg atx_force_enable = 1'b0;
+	reg mfr_force_enable = 1'b0;
 	reg atx_en_lockout = 1'b0;
 	parameter railarray_0 = {RAIL_SIZE{1'b0}};
 	parameter railarray_1 = {RAIL_SIZE{1'b1}}; 	// synchronizing signals
@@ -526,6 +527,7 @@ module system_fpga_top
 					end
 					i2c_system_override_reg_addr: begin
 						atx_force_enable <= i2c_data_from_master[0];
+						mfr_force_enable <= i2c_data_from_master[1];
 					end
 				endcase
 			end
@@ -863,20 +865,20 @@ module system_fpga_top
 		atx_en = ~en_buf[0];
 		miscio_en = en_buf[1];
 		vdna_en = en_buf[2];
-		vdnb_en = en_buf[3] & ~cpub_present_n;
+		vdnb_en = en_buf[3] & (~cpub_present_n | mfr_force_enable);
 		avdd_en = en_buf[4];
 		vioa_en = en_buf[5];
-		viob_en = en_buf[6] & ~cpub_present_n;
+		viob_en = en_buf[6] & (~cpub_present_n | mfr_force_enable);
 		vdda_en = en_buf[7];
-		vddb_en = en_buf[8] & ~cpub_present_n;
+		vddb_en = en_buf[8] & (~cpub_present_n | mfr_force_enable);
 		vcsa_en = en_buf[9];
-		vcsb_en = en_buf[10] & ~cpub_present_n;
+		vcsb_en = en_buf[10] & (~cpub_present_n | mfr_force_enable);
 		vppab_en = en_buf[11];
-		vppcd_en = en_buf[12] & ~cpub_present_n;
+		vppcd_en = en_buf[12] & (~cpub_present_n | mfr_force_enable);
 		vddrab_en = en_buf[13];
 		vttab_en = en_buf[13];
-		vddrcd_en = en_buf[14] & ~cpub_present_n;
-		vttcd_en = en_buf[14] & ~cpub_present_n;
+		vddrcd_en = en_buf[14] & (~cpub_present_n | mfr_force_enable);
+		vttcd_en = en_buf[14] & (~cpub_present_n | mfr_force_enable);
 	end
 
 	// Assign Ports to PGood buffer
