@@ -238,6 +238,7 @@ module system_fpga_top
 	reg sysen_buf = 1'b0;
 	reg atx_force_enable = 1'b0;
 	reg mfr_force_enable = 1'b0;
+	reg mfr_force_cpub_present = 1'b0;
 	reg atx_en_lockout = 1'b0;
 	parameter railarray_0 = {RAIL_SIZE{1'b0}};
 	parameter railarray_1 = {RAIL_SIZE{1'b1}}; 	// synchronizing signals
@@ -528,6 +529,7 @@ module system_fpga_top
 					i2c_system_override_reg_addr: begin
 						atx_force_enable <= i2c_data_from_master[0];
 						mfr_force_enable <= i2c_data_from_master[1];
+						mfr_force_cpub_present <= i2c_data_from_master[2];
 					end
 				endcase
 			end
@@ -886,18 +888,18 @@ module system_fpga_top
 		pg_buf[0] = atx_pg;
 		pg_buf[1] = miscio_pg;
 		pg_buf[2] = vdna_pg;
-		pg_buf[3] = vdnb_pg | (cpub_present_n & en_buf[3]);
+		pg_buf[3] = vdnb_pg | (~mfr_force_cpub_present & cpub_present_n & en_buf[3]);
 		pg_buf[4] = avdd_pg;
 		pg_buf[5] = vioa_pg;
-		pg_buf[6] = viob_pg | (cpub_present_n & en_buf[6]);
+		pg_buf[6] = viob_pg | (~mfr_force_cpub_present & cpub_present_n & en_buf[6]);
 		pg_buf[7] = vdda_pg;
-		pg_buf[8] = vddb_pg | (cpub_present_n & en_buf[8]);
+		pg_buf[8] = vddb_pg | (~mfr_force_cpub_present & cpub_present_n & en_buf[8]);
 		pg_buf[9] = vcsa_pg;
-		pg_buf[10] = vcsb_pg | (cpub_present_n & en_buf[10]);
+		pg_buf[10] = vcsb_pg | (~mfr_force_cpub_present & cpub_present_n & en_buf[10]);
 		pg_buf[11] = vppab_pg;
-		pg_buf[12] = vppcd_pg | (cpub_present_n & en_buf[12]);
+		pg_buf[12] = vppcd_pg | (~mfr_force_cpub_present & cpub_present_n & en_buf[12]);
 		pg_buf[13] = vddrab_pg;
-		pg_buf[14] = vddrcd_pg | (cpub_present_n & en_buf[14]);
+		pg_buf[14] = vddrcd_pg | (~mfr_force_cpub_present & cpub_present_n & en_buf[14]);
 	end
 
 	// Enable outputs
