@@ -60,10 +60,13 @@ module system_fpga_top
 
 		// Component disable lines
 		input wire ast_video_disable_n,
-		output reg audio_disable_n,
+		output reg audio_disable,
 		input wire mode_set_n,
 
 		// System status lines
+		input wire bmc_power_led_req,
+		input wire bmc_uid_led_req,
+		input wire sata_hdd_act_req,
 		inout nic1_act_led_n,
 		inout nic2_act_led_n,
 		inout nic3_act_led_n,
@@ -73,13 +76,14 @@ module system_fpga_top
 		input wire nic1_green_led_n,
 		input wire nic2_green_led_n,
 		input wire nic3_green_led_n,
-		input wire bmc_uid_led_req,
 
 		// Front panel indicators
+		output reg panel_power_led,
+		output reg panel_uid_led,
+		output reg panel_hdd_led,
 		output reg panel_nic1_led_cathode,
 		output reg panel_nic2_led_cathode,
 		output reg panel_nic3_led_cathode,
-		output reg panel_uid_led,
 
 		// Front panel switches
 		input wire panel_reset_in_l,
@@ -288,7 +292,9 @@ module system_fpga_top
 	wire panel_nic1_led_cathode_std;
 	wire panel_nic2_led_cathode_std;
 	wire panel_nic3_led_cathode_std;
+	wire panel_power_led_std;
 	wire panel_uid_led_std;
+	wire panel_hdd_led_std;
 	reg [2:0] bmc_startup_kr = 3'b000;
 	reg [2:0] bmc_startup_fader = 3'b000;
 	reg [2:0] bmc_startup_staggered_fader = 3'b000;
@@ -819,7 +825,7 @@ module system_fpga_top
 
 	// Enable audio
 	always @(posedge clk_in) begin
-		audio_disable_n = 1'b1;
+		audio_disable = 1'b0;
 	end
 
 	// Not used
@@ -834,50 +840,73 @@ module system_fpga_top
 		panel_nic3_led_cathode_std = ~(nic3_act_led_n_in & ~nic3_green_led_n);
 	end
 
-	// Wire up UID request to front panel
+	// Wire up power and UID requests to front panel
 	always @(posedge clk_in) begin
+		panel_power_led_std = bmc_power_led_req;
 		panel_uid_led_std = bmc_uid_led_req;
+		panel_hdd_led_std = ~sata_hdd_act_req;
 	end
 
 	// Assign front panel indicators according to BMC status
+	reg panel_power_led_req = 1'b0;
 	reg panel_uid_led_req = 1'b0;
+	reg panel_hdd_led_req = 1'b0;
+	reg bmc_startup_indicators_active = 1'b0;
 	always @(posedge clk_in) begin
 		if (bmc_boot_phase == 0) begin
 			// U-Boot phase
 			panel_nic1_led_cathode = ~bmc_startup_staggered_fader[0];
 			panel_nic2_led_cathode = ~bmc_startup_staggered_fader[1];
-			panel_nic3_led_cathode = 1'b1;
-			panel_uid_led_req = ~bmc_startup_staggered_fader[2];
+			panel_nic3_led_cathode = ~bmc_startup_staggered_fader[2];
+			panel_power_led_req = ~bmc_startup_staggered_fader[2];
+			panel_uid_led_req = bmc_startup_staggered_fader[2];
+			panel_hdd_led_req = ~bmc_startup_staggered_fader[0];
+			bmc_startup_indicators_active = 1'b1;
 		end else if (bmc_boot_phase == 1) begin
 			// Kernel phase
 			panel_nic1_led_cathode = ~bmc_startup_fader[0];
 			panel_nic2_led_cathode = ~bmc_startup_fader[1];
-			panel_nic3_led_cathode = 1'b1;
-			panel_uid_led_req = ~bmc_startup_fader[2];
+			panel_nic3_led_cathode = ~bmc_startup_fader[2];
+			panel_power_led_req = ~bmc_startup_fader[2];
+			panel_uid_led_req = bmc_startup_fader[2];
+			panel_hdd_led_req = ~bmc_startup_fader[0];
+			bmc_startup_indicators_active = 1'b1;
 		end else if (bmc_boot_phase == 2) begin
 			if (led_override_request != 0) begin
-				if (led_override_request[4]) begin
+				if (led_override_request[5]) begin
 					panel_nic1_led_cathode = ~(led_override_request[0] & hostboot_startup_fader_common_high);
 					panel_nic2_led_cathode = ~(led_override_request[1] & hostboot_startup_fader_common_high);
-					panel_nic3_led_cathode = ~(led_override_request[2] & hostboot_startup_fader_common_high);
+					panel_nic3_led_cathode = ~(led_override_request[4] & hostboot_startup_fader_common_high);
+					panel_power_led_req = panel_power_led_std;
 					panel_uid_led_req = ~(led_override_request[3] & hostboot_startup_fader_common_high);
+					panel_hdd_led_req = ~(led_override_request[2] & hostboot_startup_fader_common_high);
+					bmc_startup_indicators_active = 1'b1;
 				end else begin
 					panel_nic1_led_cathode = ~(led_override_request[0] & hostboot_startup_fader_common_low);
 					panel_nic2_led_cathode = ~(led_override_request[1] & hostboot_startup_fader_common_low);
-					panel_nic3_led_cathode = ~(led_override_request[2] & hostboot_startup_fader_common_low);
+					panel_nic3_led_cathode = ~(led_override_request[4] & hostboot_startup_fader_common_low);
+					panel_power_led_req = panel_power_led_std;
 					panel_uid_led_req = ~(led_override_request[3] & hostboot_startup_fader_common_low);
+					panel_hdd_led_req = ~(led_override_request[2] & hostboot_startup_fader_common_low);
+					bmc_startup_indicators_active = 1'b1;
 				end
 			end else begin
 				panel_nic1_led_cathode = panel_nic1_led_cathode_std;
 				panel_nic2_led_cathode = panel_nic2_led_cathode_std;
 				panel_nic3_led_cathode = panel_nic3_led_cathode_std;
+				panel_power_led_req = panel_power_led_std;
 				panel_uid_led_req = panel_uid_led_std;
+				panel_hdd_led_req = panel_hdd_led_std;
+				bmc_startup_indicators_active = 1'b0;
 			end
 		end else begin
 			panel_nic1_led_cathode = 1'b1;
 			panel_nic2_led_cathode = 1'b1;
 			panel_nic3_led_cathode = 1'b1;
+			panel_power_led_req = panel_power_led_std;
 			panel_uid_led_req = panel_uid_led_std;
+			panel_hdd_led_req = panel_hdd_led_std;
+			bmc_startup_indicators_active = 1'b0;
 		end
 
 		// The SuperMicro chassis front panel has some interesting quirks
@@ -892,6 +921,18 @@ module system_fpga_top
 			panel_uid_led = panel_uid_led_req;
 		end else begin
 			panel_uid_led = ~panel_uid_led_req;
+		end
+
+		// Front panel power LED
+		panel_power_led = panel_power_led_req;
+
+		// Front panel disk activity LED
+		// Keep LED off if system power is off and BMC has booted, otherwise
+		// pass through the SATA controller activity LED signal.
+		if ((atx_pg == 1'b1) || (bmc_startup_indicators_active == 1'b1)) begin
+			panel_hdd_led = panel_hdd_led_req;
+		end else begin
+			panel_hdd_led = 1'b1;
 		end
 	end
 

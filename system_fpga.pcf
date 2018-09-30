@@ -80,12 +80,15 @@ set_io bmc_system_reset_request_n 12
 
 # Component disable lines
 set_io ast_video_disable_n 16
-set_io audio_disable_n 1
+set_io audio_disable 1
 
 # Mode set lines
 set_io mode_set_n 25
 
 # System status lines
+set_io bmc_power_led_req 60
+set_io bmc_uid_led_req 90
+set_io sata_hdd_act_req 51
 set_io nic1_act_led_n 93
 set_io nic2_act_led_n 96
 set_io nic3_act_led_n 78
@@ -95,13 +98,14 @@ set_io nic3_link_led_n 79
 set_io nic1_green_led_n 2
 set_io nic2_green_led_n 3
 set_io nic3_green_led_n 4
-set_io bmc_uid_led_req 90
 
 # Front panel indicators
+set_io panel_power_led 64
+set_io panel_hdd_led 69
+set_io panel_uid_led 89
 set_io panel_nic1_led_cathode 91
 set_io panel_nic2_led_cathode 95
 set_io panel_nic3_led_cathode 100
-set_io panel_uid_led 89
 
 # Front panel switches
 set_io panel_reset_in_l 73
