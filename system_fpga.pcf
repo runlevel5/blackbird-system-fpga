@@ -1,4 +1,4 @@
-# This file is part of the Talos™ II system FPGA implementation
+# This file is part of the Remus system FPGA implementation
 #
 # © 2017 - 2018 Raptor Engineering, LLC
 # All Rights Reserved
@@ -23,51 +23,38 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #
-# Intended for use with Talos™ II systems from Raptor Computing Systems, LLC
-# https://www.raptorcs.com/TALOSII
+# Intended for use with Remus systems from Raptor Computing Systems, LLC
+# https://www.raptorcs.com/
 
-# LPC clock
-set_io lpc_clock 13
+# FPGA clock
+set_io fpga_clock 81
 
 # General I/O
 set_io sysen 15
 set_io sysgood 53
 
 # BMC status
-set_io bmc_boot_phase_in 100
+set_io bmc_boot_phase_in 13
 
 # Power Plane Enable
 set_io vdda_en 72
-set_io vddb_en 79
 set_io vcsa_en 71
-set_io vcsb_en 78
 set_io vdna_en 68
-set_io vdnb_en 51
 set_io vioa_en 66
-set_io viob_en 69
 set_io vppab_en 52
-set_io vppcd_en 60
 set_io vddrab_en 65
 set_io vttab_en 62
-set_io vddrcd_en 64
-set_io vttcd_en 63
 set_io avdd_en 59
 set_io miscio_en 56
 set_io atx_en 57
 
 # Power Good Sense
 set_io vdda_pg 28
-set_io vddb_pg 26
 set_io vcsa_pg 29
-set_io vcsb_pg 27
 set_io vdna_pg 34
-set_io vdnb_pg 30
 set_io vioa_pg 36
-set_io viob_pg 33
 set_io vppab_pg 42
-set_io vppcd_pg 41
 set_io vddrab_pg 37
-set_io vddrcd_pg 40
 set_io avdd_pg 19
 set_io miscio_pg 24
 set_io atx_pg 20
@@ -77,16 +64,10 @@ set_io bmc_vr_pg 18
 set_io i2c_scl 86
 set_io i2c_sda 85
 
-# CPU B Presence Detect
-set_io cpub_present_l 4
-set_io cpub_clk_oea 10
-set_io cpub_clk_oeb 9
-
 # Resets
 set_io lpc_rst 82
 set_io bmc_boot_complete_n 8
 set_io bmc_rst 83
-set_io fan_rst 1
 set_io usbhub_rst 87
 set_io cpu_stby_rst 54
 
@@ -98,8 +79,8 @@ set_io window_open_n 99
 set_io bmc_system_reset_request_n 12
 
 # Component disable lines
-set_io pmc_disable_n 21
-set_io ast_vga_disable_n 16
+set_io ast_video_disable_n 16
+set_io audio_disable_n 1
 
 # Mode set lines
 set_io mode_set_n 25
@@ -107,15 +88,19 @@ set_io mode_set_n 25
 # System status lines
 set_io nic1_act_led_n 93
 set_io nic2_act_led_n 96
+set_io nic3_act_led_n 78
 set_io nic1_link_led_n 94
 set_io nic2_link_led_n 97
+set_io nic3_link_led_n 79
 set_io nic1_green_led_n 2
 set_io nic2_green_led_n 3
+set_io nic3_green_led_n 4
 set_io bmc_uid_led_req 90
 
 # Front panel indicators
 set_io panel_nic1_led_cathode 91
 set_io panel_nic2_led_cathode 95
+set_io panel_nic3_led_cathode 100
 set_io panel_uid_led 89
 
 # Front panel switches

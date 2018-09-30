@@ -6,8 +6,8 @@
 
 module system_fpga_top
 	(
-		// LPC clock
-		input wire lpc_clock,
+		// FPGA clock
+		input wire fpga_clock,
 
 		// General I/O
 		input wire sysen,
@@ -18,36 +18,23 @@ module system_fpga_top
 
 		// Enable outputs
 		output reg vdda_en,
-		output reg vddb_en,
 		output reg vcsa_en,
-		output reg vcsb_en,
 		output reg vdna_en,
-		output reg vdnb_en,
 		output reg vioa_en,
-		output reg viob_en,
 		output reg vppab_en,
-		output reg vppcd_en,
 		output reg vddrab_en,
 		output reg vttab_en,
-		output reg vddrcd_en,
-		output reg vttcd_en,
 		output reg avdd_en,
 		output reg miscio_en,
 		output reg atx_en,
 
 		// Power Good inputs
 		input wire vdda_pg,
-		input wire vddb_pg,
 		input wire vcsa_pg,
-		input wire vcsb_pg,
 		input wire vdna_pg,
-		input wire vdnb_pg,
 		input wire vioa_pg,
-		input wire viob_pg,
 		input wire vppab_pg,
-		input wire vppcd_pg,
 		input wire vddrab_pg,
-		input wire vddrcd_pg,
 		input wire avdd_pg,
 		input wire miscio_pg,
 		input wire atx_pg,
@@ -57,16 +44,10 @@ module system_fpga_top
 		inout i2c_scl,
 		inout i2c_sda,
 
-		// Second CPU presence detect
-		input wire cpub_present_l,
-		output wire cpub_clk_oea,
-		output wire cpub_clk_oeb,
-
 		// Resets
 		output reg lpc_rst,
 		input wire bmc_boot_complete_n,
 		output reg bmc_rst,
-		output reg fan_rst,
 		output reg usbhub_rst,
 		inout cpu_stby_rst,
 
@@ -78,22 +59,26 @@ module system_fpga_top
 		inout bmc_system_reset_request_n,
 
 		// Component disable lines
-		output reg pmc_disable_n,
-		input wire ast_vga_disable_n,
+		input wire ast_video_disable_n,
+		output reg audio_disable_n,
 		input wire mode_set_n,
 
 		// System status lines
 		inout nic1_act_led_n,
 		inout nic2_act_led_n,
+		inout nic3_act_led_n,
 		inout nic1_link_led_n,
 		inout nic2_link_led_n,
+		inout nic3_link_led_n,
 		input wire nic1_green_led_n,
 		input wire nic2_green_led_n,
+		input wire nic3_green_led_n,
 		input wire bmc_uid_led_req,
 
 		// Front panel indicators
 		output reg panel_nic1_led_cathode,
 		output reg panel_nic2_led_cathode,
+		output reg panel_nic3_led_cathode,
 		output reg panel_uid_led,
 
 		// Front panel switches
@@ -126,16 +111,6 @@ module system_fpga_top
 		.D_IN_0(flexver_reset_req_l)
 	);
 
-	// The CPU presence detect line requires a pullup to 3.3V
-	wire cpub_present_n;
-	SB_IO #(
-		.PIN_TYPE(6'b000001),
-		.PULLUP(1'b1)
-	) cpub_present_l_io (
-		.PACKAGE_PIN(cpub_present_l),
-		.D_IN_0(cpub_present_n)
-	);
-
 	// Make NIC activity lights work
 	// WARNING: Hic Sunt Dracones!
 	//
@@ -157,6 +132,7 @@ module system_fpga_top
 	// With these workarounds, the network link and activity LEDs on the front and rear panel function normally.
 	wire nic1_act_led_n_in;
 	wire nic2_act_led_n_in;
+	wire nic3_act_led_n_in;
 
 	SB_IO #(
 		.PIN_TYPE(6'b101001),
@@ -179,6 +155,15 @@ module system_fpga_top
 	SB_IO #(
 		.PIN_TYPE(6'b101001),
 		.PULLUP(1'b1)
+	) nic3_act_led_n_io (
+		.PACKAGE_PIN(nic3_act_led_n),
+		.OUTPUT_ENABLE(1'b0),
+		.D_OUT_0(1'b1),
+		.D_IN_0(nic3_act_led_n_in)
+	);
+	SB_IO #(
+		.PIN_TYPE(6'b101001),
+		.PULLUP(1'b1)
 	) nic1_link_led_n_io (
 		.PACKAGE_PIN(nic1_link_led_n),
 		.OUTPUT_ENABLE(~nic1_green_led_n),
@@ -190,6 +175,14 @@ module system_fpga_top
 	) nic2_link_led_n_io (
 		.PACKAGE_PIN(nic2_link_led_n),
 		.OUTPUT_ENABLE(~nic2_green_led_n),
+		.D_OUT_0(1'b1)
+	);
+	SB_IO #(
+		.PIN_TYPE(6'b101001),
+		.PULLUP(1'b1)
+	) nic3_link_led_n_io (
+		.PACKAGE_PIN(nic3_link_led_n),
+		.OUTPUT_ENABLE(~nic3_green_led_n),
 		.D_OUT_0(1'b1)
 	);
 
@@ -222,7 +215,7 @@ module system_fpga_top
 		.D_IN_0(i2c_sda_in)
 	);
 
-	parameter fpga_version = 8'h0a;
+	parameter fpga_version = 8'h00;
 	parameter vendor_id1 = 8'h52;
 	parameter vendor_id2 = 8'h43;
 	parameter vendor_id3 = 8'h53;
@@ -232,13 +225,15 @@ module system_fpga_top
 	reg [RAIL_SIZE - 1:0] pg_buf = 0;
 	reg sysgood_buf = 1'b0;
 	wire clk_in;
-	wire clk_in_lpc;
+	wire clk_in_fpga;
 	wire clk_in_ring;
 	wire stdby_sed = 1'b0;
 	reg sysen_buf = 1'b0;
 	reg atx_force_enable = 1'b0;
 	reg mfr_force_enable = 1'b0;
 	reg mfr_force_cpub_present = 1'b0;
+	reg atx_debug_force_enable = 1'b0;
+	reg reg_debug_force_enable = 1'b0;
 	reg atx_en_lockout = 1'b0;
 	parameter railarray_0 = {RAIL_SIZE{1'b0}};
 	parameter railarray_1 = {RAIL_SIZE{1'b1}}; 	// synchronizing signals
@@ -292,6 +287,7 @@ module system_fpga_top
 	// Front panel control signals
 	wire panel_nic1_led_cathode_std;
 	wire panel_nic2_led_cathode_std;
+	wire panel_nic3_led_cathode_std;
 	wire panel_uid_led_std;
 	reg [2:0] bmc_startup_kr = 3'b000;
 	reg [2:0] bmc_startup_fader = 3'b000;
@@ -302,41 +298,14 @@ module system_fpga_top
 	reg hostboot_startup_fader_common_high = 1'b0;
 	reg [7:0] led_override_request = 8'b00000000;
 
-	// Implement nasty ring oscillator for fallback use when main system clock is offline
-	// Thanks to Clifford Wolf for the idea and basic code!
-	wire chain_in;
-	wire chain_out;
-	wire [99:0] buffers_in;
-	wire [99:0] buffers_out;
-	assign buffers_in = {buffers_out[98:0], chain_in};
-	assign chain_out = buffers_out[99];
-	assign chain_in = !chain_out;
-
-	SB_LUT4 #(
-		.LUT_INIT(16'd2)
-	) buffers [99:0] (
-		.O(buffers_out),
-		.I0(buffers_in),
-		.I1(1'b0),
-		.I2(1'b0),
-		.I3(1'b0)
-	);
-
-	// Divide unstable 10MHz ring clock down to ~2MHz
-	reg [2:0] ring_clock_divider = 0;
-	always @(posedge chain_out) begin
-		ring_clock_divider = ring_clock_divider + 1;
+	// Divide input 8MHz clock down to 1MHz
+	reg [2:0] fpga_clock_divider = 0;
+	always @(posedge fpga_clock) begin
+		fpga_clock_divider = fpga_clock_divider + 1;
 	end
-	assign clk_in_ring = ring_clock_divider[2];
+	assign clk_in_fpga = fpga_clock_divider[2];
 
-	// Divide input 33MHz clock down to 4.125MHz
-	reg [2:0] lpc_clock_divider = 0;
-	always @(posedge lpc_clock) begin
-		lpc_clock_divider = lpc_clock_divider + 1;
-	end
-	assign clk_in_lpc = lpc_clock_divider[2];
-
-	// Divide 4.125MHz clock down to 500Hz, 125Hz, and 7Hz, respectively
+	// Divide 4MHz clock down to 488Hz, 122Hz, and 6Hz, respectively
 	wire timer_clk_2;
 	wire timer_clk_3;
 	wire timer_clk_4;
@@ -348,9 +317,7 @@ module system_fpga_top
 	assign timer_clk_3 = timer_clk_counter[14];
 	assign timer_clk_4 = timer_clk_counter[16];
 
-	reg clock_select = 1'b1;
-
-	assign clk_in = (clock_select)?clk_in_ring:clk_in_lpc;
+	assign clk_in = clk_in_fpga;
 
 	// I2C device
 	i2c_slave #(
@@ -530,6 +497,8 @@ module system_fpga_top
 						atx_force_enable <= i2c_data_from_master[0];
 						mfr_force_enable <= i2c_data_from_master[1];
 						mfr_force_cpub_present <= i2c_data_from_master[2];
+						atx_debug_force_enable <= i2c_data_from_master[3];
+						reg_debug_force_enable <= i2c_data_from_master[4];
 					end
 				endcase
 			end
@@ -547,7 +516,7 @@ module system_fpga_top
 			// 	i2c_data_to_master <= i2c_pg_reg[7:0];
 			// end
 			i2c_status_reg_addr: begin
-				i2c_data_to_master <= {~mode_set_n, ~ast_vga_disable_n, ~cpub_present_n, wait_err, operation_err, err_found, sysen_buf, sysgood_buf};
+				i2c_data_to_master <= {~mode_set_n, ~ast_video_disable_n, 1'b0, wait_err, operation_err, err_found, sysen_buf, sysgood_buf};
 			end
 			i2c_pwr_en_stat_reg_addr1: begin
 				i2c_data_to_master <= en_buf[7:0];
@@ -690,54 +659,6 @@ module system_fpga_top
 				delay_done[8] <= 1'b1;
 			end
 		end
-		else if ((pg_s2[9] == 1'b1 && en_buf[9] == 1'b1 && delay_done[9] == 1'b0)) begin
-			w_count <= {27{1'b0}};
-			d_count <= d_count + 1;
-			if ((d_count[16] == 1'b1)) begin
-				d_count <= {17{1'b0}};
-				delay_done[9] <= 1'b1;
-			end
-		end
-		else if ((pg_s2[10] == 1'b1 && en_buf[10] == 1'b1 && delay_done[10] == 1'b0)) begin
-			w_count <= {27{1'b0}};
-			d_count <= d_count + 1;
-			if ((d_count[16] == 1'b1)) begin
-				d_count <= {17{1'b0}};
-				delay_done[10] <= 1'b1;
-			end
-		end
-		else if ((pg_s2[11] == 1'b1 && en_buf[11] == 1'b1 && delay_done[11] == 1'b0)) begin
-			w_count <= {27{1'b0}};
-			d_count <= d_count + 1;
-			if ((d_count[16] == 1'b1)) begin
-				d_count <= {17{1'b0}};
-				delay_done[11] <= 1'b1;
-			end
-		end
-		else if ((pg_s2[12] == 1'b1 && en_buf[12] == 1'b1 && delay_done[12] == 1'b0)) begin
-			w_count <= {27{1'b0}};
-			d_count <= d_count + 1;
-			if ((d_count[16] == 1'b1)) begin
-				d_count <= {17{1'b0}};
-				delay_done[12] <= 1'b1;
-			end
-		end
-		else if ((pg_s2[13] == 1'b1 && en_buf[13] == 1'b1 && delay_done[13] == 1'b0)) begin
-			w_count <= {27{1'b0}};
-			d_count <= d_count + 1;
-			if ((d_count[16] == 1'b1)) begin
-				d_count <= {17{1'b0}};
-				delay_done[13] <= 1'b1;
-			end
-		end
-		else if ((pg_s2[14] == 1'b1 && en_buf[14] == 1'b1 && delay_done[14] == 1'b0)) begin
-			w_count <= {27{1'b0}};
-			d_count <= d_count + 1;
-			if ((d_count[16] == 1'b1)) begin
-				d_count <= {17{1'b0}};
-				delay_done[14] <= 1'b1;
-			end
-		end
 
 		// Error Checks
 		// Check time between Enables going high and PGOODs arriving. Error out after 100ms
@@ -806,55 +727,13 @@ module system_fpga_top
 				wait_err <= 1'b1;
 			end
 		end
-		else if ((pg_s2[9] == 1'b0 && en_buf[9] == 1'b1)) begin
-			w_count <= w_count + 1;
-			if ((w_count[23] == 1'b1)) begin
-				w_count <= {27{1'b0}};
-				wait_err <= 1'b1;
-			end
-		end
-		else if ((pg_s2[10] == 1'b0 && en_buf[10] == 1'b1)) begin
-			w_count <= w_count + 1;
-			if ((w_count[23] == 1'b1)) begin
-				w_count <= {27{1'b0}};
-				wait_err <= 1'b1;
-			end
-		end
-		else if ((pg_s2[11] == 1'b0 && en_buf[11] == 1'b1)) begin
-			w_count <= w_count + 1;
-			if ((w_count[23] == 1'b1)) begin
-				w_count <= {27{1'b0}};
-				wait_err <= 1'b1;
-			end
-		end
-		else if ((pg_s2[12] == 1'b0 && en_buf[12] == 1'b1)) begin
-			w_count <= w_count + 1;
-			if ((w_count[23] == 1'b1)) begin
-				w_count <= {27{1'b0}};
-				wait_err <= 1'b1;
-			end
-		end
-		else if ((pg_s2[13] == 1'b0 && en_buf[13] == 1'b1)) begin
-			w_count <= w_count + 1;
-			if ((w_count[23] == 1'b1)) begin
-				w_count <= {27{1'b0}};
-				wait_err <= 1'b1;
-			end
-		end
-		else if ((pg_s2[14] == 1'b0 && en_buf[14] == 1'b1)) begin
-			w_count <= w_count + 1;
-			if ((w_count[23] == 1'b1)) begin
-				w_count <= {27{1'b0}};
-				wait_err <= 1'b1;
-			end
-		end
 		if ((( ~(delay_done & ~pg_s2)) != railarray_1)) begin
 			operation_err <= 1'b1;
 		end
 		if (((wait_err | operation_err) == 1'b1 && clear_err == 1'b0)) begin
 			err_found <= 1'b1;
 		end else begin
-			i2c_pg_reg[14:0] <= pg_s2[14:0];
+			i2c_pg_reg[9:0] <= pg_s2[9:0];
 		end
 
 		if (err_found && ~err_found_s1) begin
@@ -864,23 +743,16 @@ module system_fpga_top
 	
 	// Assign Ports to Enables
 	always @(posedge clk_in) begin
-		atx_en = ~en_buf[0];
-		miscio_en = en_buf[1];
-		vdna_en = en_buf[2];
-		vdnb_en = en_buf[3] & (~cpub_present_n | mfr_force_enable);
-		avdd_en = en_buf[4];
-		vioa_en = en_buf[5];
-		viob_en = en_buf[6] & (~cpub_present_n | mfr_force_enable);
-		vdda_en = en_buf[7];
-		vddb_en = en_buf[8] & (~cpub_present_n | mfr_force_enable);
-		vcsa_en = en_buf[9];
-		vcsb_en = en_buf[10] & (~cpub_present_n | mfr_force_enable);
-		vppab_en = en_buf[11];
-		vppcd_en = en_buf[12] & (~cpub_present_n | mfr_force_enable);
-		vddrab_en = en_buf[13];
-		vttab_en = en_buf[13];
-		vddrcd_en = en_buf[14] & (~cpub_present_n | mfr_force_enable);
-		vttcd_en = en_buf[14] & (~cpub_present_n | mfr_force_enable);
+		atx_en = ~(en_buf[0] | atx_debug_force_enable);
+		miscio_en = en_buf[1] | reg_debug_force_enable;
+		vdna_en = en_buf[2] | reg_debug_force_enable;
+		avdd_en = en_buf[3] | reg_debug_force_enable;
+		vioa_en = en_buf[4] | reg_debug_force_enable;
+		vdda_en = en_buf[5] | reg_debug_force_enable;
+		vcsa_en = en_buf[6] | reg_debug_force_enable;
+		vppab_en = en_buf[7] | reg_debug_force_enable;
+		vddrab_en = en_buf[8] | reg_debug_force_enable;
+		vttab_en = en_buf[8] | reg_debug_force_enable;
 	end
 
 	// Assign Ports to PGood buffer
@@ -888,18 +760,12 @@ module system_fpga_top
 		pg_buf[0] = atx_pg;
 		pg_buf[1] = miscio_pg;
 		pg_buf[2] = vdna_pg;
-		pg_buf[3] = vdnb_pg | (~mfr_force_cpub_present & cpub_present_n & en_buf[3]);
-		pg_buf[4] = avdd_pg;
-		pg_buf[5] = vioa_pg;
-		pg_buf[6] = viob_pg | (~mfr_force_cpub_present & cpub_present_n & en_buf[6]);
-		pg_buf[7] = vdda_pg;
-		pg_buf[8] = vddb_pg | (~mfr_force_cpub_present & cpub_present_n & en_buf[8]);
-		pg_buf[9] = vcsa_pg;
-		pg_buf[10] = vcsb_pg | (~mfr_force_cpub_present & cpub_present_n & en_buf[10]);
-		pg_buf[11] = vppab_pg;
-		pg_buf[12] = vppcd_pg | (~mfr_force_cpub_present & cpub_present_n & en_buf[12]);
-		pg_buf[13] = vddrab_pg;
-		pg_buf[14] = vddrcd_pg | (~mfr_force_cpub_present & cpub_present_n & en_buf[14]);
+		pg_buf[3] = avdd_pg;
+		pg_buf[4] = vioa_pg;
+		pg_buf[5] = vdda_pg;
+		pg_buf[6] = vcsa_pg;
+		pg_buf[7] = vppab_pg;
+		pg_buf[8] = vddrab_pg;
 	end
 
 	// Enable outputs
@@ -907,21 +773,15 @@ module system_fpga_top
 	// Otherwise, if system enable is up, then enable short delay is done after previous rail
 	// Otherwise, disable after next rail goes down
 	always @(posedge clk_in) begin
-		en_buf[0] = (sysen_s2 | pg_s2[1]) & ~err_found & ~atx_en_lockout;
-		en_buf[1] = ((sysen_s2 & delay_done[0]) | pg_s2[2]) & ~err_found;
-		en_buf[2] = ((sysen_s2 & delay_done[1]) | pg_s2[3]) & ~err_found;
-		en_buf[3] = ((sysen_s2 & delay_done[2]) | pg_s2[4]) & ~err_found;
-		en_buf[4] = ((sysen_s2 & delay_done[3]) | pg_s2[5]) & ~err_found;
-		en_buf[5] = ((sysen_s2 & delay_done[4]) | pg_s2[6]) & ~err_found;
-		en_buf[6] = ((sysen_s2 & delay_done[5]) | pg_s2[7]) & ~err_found;
-		en_buf[7] = ((sysen_s2 & delay_done[6]) | pg_s2[8]) & ~err_found;
-		en_buf[8] = ((sysen_s2 & delay_done[7]) | pg_s2[9]) & ~err_found;
-		en_buf[9] = ((sysen_s2 & delay_done[8]) | pg_s2[10]) & ~err_found;
-		en_buf[10] = ((sysen_s2 & delay_done[9]) | pg_s2[11]) & ~err_found;
-		en_buf[11] = ((sysen_s2 & delay_done[10]) | pg_s2[12]) & ~err_found;
-		en_buf[12] = ((sysen_s2 & delay_done[11]) | pg_s2[13]) & ~err_found;
-		en_buf[13] = ((sysen_s2 & delay_done[12]) | pg_s2[14]) & ~err_found;
-		en_buf[14] = (sysen_s2 & delay_done[13]) & ~err_found;
+		en_buf[0] = ((sysen_s2 | pg_s2[1]) & ~err_found & ~atx_en_lockout);
+		en_buf[1] = (((sysen_s2 & delay_done[0]) | pg_s2[2]) & ~err_found);
+		en_buf[2] = (((sysen_s2 & delay_done[1]) | pg_s2[3]) & ~err_found);
+		en_buf[3] = (((sysen_s2 & delay_done[2]) | pg_s2[4]) & ~err_found);
+		en_buf[4] = (((sysen_s2 & delay_done[3]) | pg_s2[5]) & ~err_found);
+		en_buf[5] = (((sysen_s2 & delay_done[4]) | pg_s2[6]) & ~err_found);
+		en_buf[6] = (((sysen_s2 & delay_done[5]) | pg_s2[7]) & ~err_found);
+		en_buf[7] = (((sysen_s2 & delay_done[6]) | pg_s2[8]) & ~err_found);
+		en_buf[8] = ((sysen_s2 & delay_done[7]) & ~err_found);
 	end
 
 	// ERR state reset
@@ -929,15 +789,9 @@ module system_fpga_top
 		clear_err = i2c_clr_err | host_clr_err;
 	end
 
-	// CPUB clk enables
-	always @(posedge clk_in) begin
-		cpub_clk_oea = ~cpub_present_n;
-		cpub_clk_oeb = ~cpub_present_n;
-	end
-
 	// System PWRGOOD
 	always @(posedge clk_in) begin
-		sysgood_buf = delay_done[14];
+		sysgood_buf = delay_done[8];
 		sysgood = sysgood_buf & ~bmc_boot_complete_n;
 		lpc_rst = sysgood_buf;
 	end
@@ -951,7 +805,6 @@ module system_fpga_top
 	always @(posedge clk_in) begin
 		bmc_rst = bmc_vr_pg & ~bmc_watchdog_reset;
 		usbhub_rst = sysgood_buf & ~bmc_boot_complete_n;
-		fan_rst = bmc_vr_pg;
 	end
 
 	// atx_force_enable override allows non-BMC control of FPGA
@@ -964,9 +817,9 @@ module system_fpga_top
 		dual_5v_ctrl = 1'b0;
 	end
 
-	// Enable PMC
+	// Enable audio
 	always @(posedge clk_in) begin
-		pmc_disable_n = 1'b1;
+		audio_disable_n = 1'b1;
 	end
 
 	// Not used
@@ -978,6 +831,7 @@ module system_fpga_top
 	always @(posedge clk_in) begin
 		panel_nic1_led_cathode_std = ~(nic1_act_led_n_in & ~nic1_green_led_n);
 		panel_nic2_led_cathode_std = ~(nic2_act_led_n_in & ~nic2_green_led_n);
+		panel_nic3_led_cathode_std = ~(nic3_act_led_n_in & ~nic3_green_led_n);
 	end
 
 	// Wire up UID request to front panel
@@ -992,31 +846,37 @@ module system_fpga_top
 			// U-Boot phase
 			panel_nic1_led_cathode = ~bmc_startup_staggered_fader[0];
 			panel_nic2_led_cathode = ~bmc_startup_staggered_fader[1];
+			panel_nic3_led_cathode = 1'b1;
 			panel_uid_led_req = ~bmc_startup_staggered_fader[2];
 		end else if (bmc_boot_phase == 1) begin
 			// Kernel phase
 			panel_nic1_led_cathode = ~bmc_startup_fader[0];
 			panel_nic2_led_cathode = ~bmc_startup_fader[1];
+			panel_nic3_led_cathode = 1'b1;
 			panel_uid_led_req = ~bmc_startup_fader[2];
 		end else if (bmc_boot_phase == 2) begin
 			if (led_override_request != 0) begin
-				if (led_override_request[3]) begin
+				if (led_override_request[4]) begin
 					panel_nic1_led_cathode = ~(led_override_request[0] & hostboot_startup_fader_common_high);
 					panel_nic2_led_cathode = ~(led_override_request[1] & hostboot_startup_fader_common_high);
-					panel_uid_led_req = ~(led_override_request[2] & hostboot_startup_fader_common_high);
+					panel_nic3_led_cathode = ~(led_override_request[2] & hostboot_startup_fader_common_high);
+					panel_uid_led_req = ~(led_override_request[3] & hostboot_startup_fader_common_high);
 				end else begin
 					panel_nic1_led_cathode = ~(led_override_request[0] & hostboot_startup_fader_common_low);
 					panel_nic2_led_cathode = ~(led_override_request[1] & hostboot_startup_fader_common_low);
-					panel_uid_led_req = ~(led_override_request[2] & hostboot_startup_fader_common_low);
+					panel_nic3_led_cathode = ~(led_override_request[2] & hostboot_startup_fader_common_low);
+					panel_uid_led_req = ~(led_override_request[3] & hostboot_startup_fader_common_low);
 				end
 			end else begin
 				panel_nic1_led_cathode = panel_nic1_led_cathode_std;
 				panel_nic2_led_cathode = panel_nic2_led_cathode_std;
+				panel_nic3_led_cathode = panel_nic3_led_cathode_std;
 				panel_uid_led_req = panel_uid_led_std;
 			end
 		end else begin
 			panel_nic1_led_cathode = 1'b1;
 			panel_nic2_led_cathode = 1'b1;
+			panel_nic3_led_cathode = 1'b1;
 			panel_uid_led_req = panel_uid_led_std;
 		end
 
