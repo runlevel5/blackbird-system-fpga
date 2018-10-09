@@ -80,7 +80,7 @@ set_io bmc_system_reset_request_n 12
 
 # Component disable lines
 set_io ast_video_disable_n 16
-set_io audio_disable 1
+set_io audio_power_down 1
 
 # Mode set lines
 set_io mode_set_n 25

@@ -60,7 +60,7 @@ module system_fpga_top
 
 		// Component disable lines
 		input wire ast_video_disable_n,
-		output reg audio_disable,
+		input wire audio_power_down,
 		input wire mode_set_n,
 
 		// System status lines
@@ -561,7 +561,7 @@ module system_fpga_top
 				i2c_data_to_master <= fpga_version;
 			end
 			i2c_system_override_reg_addr: begin
-				i2c_data_to_master <= {7'b0000000, atx_force_enable};
+				i2c_data_to_master <= {audio_power_down, 6'b000000, atx_force_enable};
 			end
 			default: begin
 				i2c_data_to_master <= 8'b00000000;
@@ -821,11 +821,6 @@ module system_fpga_top
 	// Enable V5_0_DUAL rail
 	always @(posedge clk_in) begin
 		dual_5v_ctrl = 1'b0;
-	end
-
-	// Enable audio
-	always @(posedge clk_in) begin
-		audio_disable = 1'b0;
 	end
 
 	// Not used
