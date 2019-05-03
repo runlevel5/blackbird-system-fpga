@@ -1,5 +1,5 @@
 // Copyright © 2017, International Business Machines Corp.
-// Copyright © 2017 - 2018 Raptor Engineering, LLC
+// Copyright © 2017 - 2019 Raptor Engineering, LLC
 // All Rights Reserved
 //
 // See LICENSE file for licensing details
@@ -219,7 +219,7 @@ module system_fpga_top
 		.D_IN_0(i2c_sda_in)
 	);
 
-	parameter fpga_version = 8'h00;
+	parameter fpga_version = 8'h01;
 	parameter vendor_id1 = 8'h52;
 	parameter vendor_id2 = 8'h43;
 	parameter vendor_id3 = 8'h53;
@@ -239,6 +239,7 @@ module system_fpga_top
 	reg atx_debug_force_enable = 1'b0;
 	reg reg_debug_force_enable = 1'b0;
 	reg atx_en_lockout = 1'b0;
+	reg invert_sata_hdd_act_req = 1'b0;
 	parameter railarray_0 = {RAIL_SIZE{1'b0}};
 	parameter railarray_1 = {RAIL_SIZE{1'b1}}; 	// synchronizing signals
 	reg [RAIL_SIZE - 1:0] pg_s1 = {RAIL_SIZE{1'b0}};
@@ -280,6 +281,7 @@ module system_fpga_top
 	parameter i2c_vendor_id_reg_addr3 = i2c_vendor_id_reg_addr1 + 2;
 	parameter i2c_vendor_id_reg_addr4 = i2c_vendor_id_reg_addr1 + 3;
 	parameter i2c_led_override_reg_addr = 8'b00010000;
+	parameter i2c_led_config_reg_addr = 8'b00010001;
 	parameter i2c_seq_fail_stat_reg_addr1 = 8'b00011000;
 	parameter i2c_seq_fail_stat_reg_addr2 = 8'b00011001;
 	parameter i2c_system_override_reg_addr = 8'b00110011;
@@ -499,6 +501,9 @@ module system_fpga_top
 					i2c_led_override_reg_addr: begin
 						led_override_request <= i2c_data_from_master;
 					end
+					i2c_led_config_reg_addr: begin
+						invert_sata_hdd_act_req <= i2c_data_from_master[0];
+					end
 					i2c_system_override_reg_addr: begin
 						atx_force_enable <= i2c_data_from_master[0];
 						mfr_force_enable <= i2c_data_from_master[1];
@@ -522,7 +527,7 @@ module system_fpga_top
 			// 	i2c_data_to_master <= i2c_pg_reg[7:0];
 			// end
 			i2c_status_reg_addr: begin
-				i2c_data_to_master <= {~mode_set_n, ~ast_video_disable_n, 1'b0, wait_err, operation_err, err_found, sysen_buf, sysgood_buf};
+				i2c_data_to_master <= {~mode_set_n, ~ast_video_disable_n, 0, wait_err, operation_err, err_found, sysen_buf, sysgood_buf};
 			end
 			i2c_pwr_en_stat_reg_addr1: begin
 				i2c_data_to_master <= en_buf[7:0];
@@ -544,6 +549,9 @@ module system_fpga_top
 			end
 			i2c_led_override_reg_addr: begin
 				i2c_data_to_master <= led_override_request;
+			end
+			i2c_led_config_reg_addr: begin
+				i2c_data_to_master <= {7'b0, invert_sata_hdd_act_req};
 			end
 			i2c_vendor_id_reg_addr1: begin
 				i2c_data_to_master <= vendor_id1;
@@ -839,7 +847,11 @@ module system_fpga_top
 	always @(posedge clk_in) begin
 		panel_power_led_std = bmc_power_led_req;
 		panel_uid_led_std = bmc_uid_led_req;
-		panel_hdd_led_std = ~sata_hdd_act_req;
+		if (invert_sata_hdd_act_req) begin
+			panel_hdd_led_std = sata_hdd_act_req;
+		end else begin
+			panel_hdd_led_std = ~sata_hdd_act_req;
+		end
 	end
 
 	// Assign front panel indicators according to BMC status
