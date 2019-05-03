@@ -868,11 +868,11 @@ module system_fpga_top
 		if (bmc_boot_phase == 0) begin
 			// U-Boot phase
 			panel_nic1_led_cathode = ~bmc_startup_staggered_fader[0];
-			panel_nic2_led_cathode = ~bmc_startup_staggered_fader[1];
+			panel_nic2_led_cathode = ~bmc_startup_staggered_fader[0];
 			panel_nic3_led_cathode = ~bmc_startup_staggered_fader[2];
 			panel_power_led_req = ~bmc_startup_staggered_fader[2];
-			panel_uid_led_req = bmc_startup_staggered_fader[2];
-			panel_hdd_led_req = ~bmc_startup_staggered_fader[0];
+			panel_uid_led_req = bmc_startup_staggered_fader[1];
+			panel_hdd_led_req = ~bmc_startup_staggered_fader[1];
 			bmc_startup_indicators_active = 1'b1;
 		end else if (bmc_boot_phase == 1) begin
 			// Kernel phase
