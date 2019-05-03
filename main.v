@@ -847,10 +847,15 @@ module system_fpga_top
 	always @(posedge clk_in) begin
 		panel_power_led_std = bmc_power_led_req;
 		panel_uid_led_std = bmc_uid_led_req;
-		if (invert_sata_hdd_act_req) begin
-			panel_hdd_led_std = sata_hdd_act_req;
+		if (atx_pg == 1'b1) begin
+			if (invert_sata_hdd_act_req) begin
+				panel_hdd_led_std = sata_hdd_act_req;
+			end else begin
+				panel_hdd_led_std = ~sata_hdd_act_req;
+			end
 		end else begin
-			panel_hdd_led_std = ~sata_hdd_act_req;
+			// Disable HDD LED if chassis power is off
+			panel_hdd_led_std = 1'b1;
 		end
 	end
 
