@@ -34,7 +34,7 @@ set_io sysen 15
 set_io sysgood 53
 
 # BMC status
-set_io bmc_boot_phase_in 13
+set_io bmc_boot_phase_pin 13
 
 # Power Plane Enable
 set_io vdda_en 72

@@ -14,7 +14,7 @@ module system_fpga_top
 		output reg sysgood,
 
 		// BMC status
-		input wire bmc_boot_phase_in,
+		input wire bmc_boot_phase_pin,
 
 		// Enable outputs
 		output reg vdda_en,
@@ -113,6 +113,17 @@ module system_fpga_top
 	) flexver_reset_in_l_io (
 		.PACKAGE_PIN(flexver_reset_in_l),
 		.D_IN_0(flexver_reset_req_l)
+	);
+
+	// The boot phase line from the BMC requires a pullup to 3.3V
+	// RAJA
+	wire bmc_boot_phase_in;
+	SB_IO #(
+		.PIN_TYPE(6'b000001),
+		.PULLUP(1'b1)
+	) bmc_boot_phase_pin_io (
+		.PACKAGE_PIN(bmc_boot_phase_pin),
+		.D_IN_0(bmc_boot_phase_in)
 	);
 
 	// Make NIC activity lights work
