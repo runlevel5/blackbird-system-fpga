@@ -230,7 +230,7 @@ module system_fpga_top
 		.D_IN_0(i2c_sda_in)
 	);
 
-	parameter fpga_version = 8'h01;
+	parameter fpga_version = 8'h02;
 	parameter vendor_id1 = 8'h52;
 	parameter vendor_id2 = 8'h43;
 	parameter vendor_id3 = 8'h53;
@@ -529,14 +529,12 @@ module system_fpga_top
 			i2c_reg_cur <= i2c_reg_cur + 1;
 		end
 		case (i2c_reg_cur)
-			// FIXME
-			// Temporarily disabled to save die area
-			// i2c_pg_reg_addr1: begin
-			// 	i2c_data_to_master <= i2c_pg_reg[15:8];
-			// end
-			// i2c_pg_reg_addr2: begin
-			// 	i2c_data_to_master <= i2c_pg_reg[7:0];
-			// end
+			i2c_pg_reg_addr1: begin
+				i2c_data_to_master <= {6'b0, i2c_pg_reg[9:8]};
+			end
+			i2c_pg_reg_addr2: begin
+				i2c_data_to_master <= i2c_pg_reg[7:0];
+			end
 			i2c_status_reg_addr: begin
 				i2c_data_to_master <= {~mode_set_n, ~ast_video_disable_n, 1'b0, wait_err, operation_err, err_found, sysen_buf, sysgood_buf};
 			end
