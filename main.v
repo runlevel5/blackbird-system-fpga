@@ -538,7 +538,7 @@ module system_fpga_top
 			// 	i2c_data_to_master <= i2c_pg_reg[7:0];
 			// end
 			i2c_status_reg_addr: begin
-				i2c_data_to_master <= {~mode_set_n, ~ast_video_disable_n, 0, wait_err, operation_err, err_found, sysen_buf, sysgood_buf};
+				i2c_data_to_master <= {~mode_set_n, ~ast_video_disable_n, 1'b0, wait_err, operation_err, err_found, sysen_buf, sysgood_buf};
 			end
 			i2c_pwr_en_stat_reg_addr1: begin
 				i2c_data_to_master <= en_buf[7:0];
