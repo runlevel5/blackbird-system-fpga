@@ -56,7 +56,7 @@ module system_fpga_top
 		output reg window_open_n,
 
 		// BMC system reset signalling
-		inout bmc_system_reset_request_n,
+		output reg bmc_system_reset_request_n,
 
 		// Component disable lines
 		input wire ast_video_disable_n,
@@ -302,12 +302,12 @@ module system_fpga_top
 	reg [7:0] i2c_write_reg_latch = 0;
 
 	// Front panel control signals
-	wire panel_nic1_led_cathode_std;
-	wire panel_nic2_led_cathode_std;
-	wire panel_nic3_led_cathode_std;
-	wire panel_power_led_std;
-	wire panel_uid_led_std;
-	wire panel_hdd_led_std;
+	reg panel_nic1_led_cathode_std = 1;
+	reg panel_nic2_led_cathode_std = 1;
+	reg panel_nic3_led_cathode_std = 1;
+	reg panel_power_led_std = 1;
+	reg panel_uid_led_std = 1;
+	reg panel_hdd_led_std = 1;
 	reg [2:0] bmc_startup_kr = 3'b000;
 	reg [2:0] bmc_startup_fader = 3'b000;
 	reg [2:0] bmc_startup_staggered_fader = 3'b000;
